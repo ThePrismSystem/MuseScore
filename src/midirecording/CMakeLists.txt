@@ -8,6 +8,8 @@ target_sources(midirecording PRIVATE
     internal/notepairing.h
     internal/prepare.cpp
     internal/prepare.h
+    internal/gridselection.cpp
+    internal/gridselection.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)
