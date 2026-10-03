@@ -136,6 +136,18 @@ RetVal<TakeFile> mu::midirecording::takeFromJson(const ByteArray& data)
     take.settings.minRestTicks = settings.value("minRestTicks", defaults.minRestTicks).toInt();
     take.settings.brushMs = settings.value("brushMs", defaults.brushMs).toDouble();
     take.settings.overlaps = settings.value("overlaps", "tied").toStdString() == "cut" ? OverlapMode::Cut : OverlapMode::Tied;
+    if (take.settings.gridTicks <= 0) {
+        return takeFileError("take file settings gridTicks must be above 0");
+    }
+    if (take.settings.tripletUnitTicks <= 0) {
+        return takeFileError("take file settings tripletUnitTicks must be above 0");
+    }
+    if (take.settings.minRestTicks < 0) {
+        return takeFileError("take file settings minRestTicks must not be negative");
+    }
+    if (take.settings.brushMs < 0.0) {
+        return takeFileError("take file settings brushMs must not be negative");
+    }
 
     const JsonArray events = root.value("events").toArray();
     for (size_t i = 0; i < events.size(); ++i) {

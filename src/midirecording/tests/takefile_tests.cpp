@@ -150,3 +150,30 @@ TEST_F(MidiRecording_TakeFileTests, MissingSettingsTakeDefaults)
     EXPECT_TRUE(loaded.val.settings.triplets);
     EXPECT_EQ(loaded.val.settings.overlaps, OverlapMode::Tied);
 }
+
+TEST_F(MidiRecording_TakeFileTests, RejectsSettingsOutOfRange)
+{
+    const auto load = [](const std::string& settings) {
+        const std::string json = std::string("{") + TAKEFILE_TEST_HEADER + ",\"settings\":{" + settings + "},\"events\":[],\"clock\":[]}";
+        return takeFromJson(ByteArray(json.c_str()));
+    };
+
+    const std::pair<const char*, const char*> outOfRange[] = {
+        { "gridTicks", "\"gridTicks\":0" },
+        { "tripletUnitTicks", "\"tripletUnitTicks\":0" },
+        { "minRestTicks", "\"minRestTicks\":-1" },
+        { "brushMs", "\"brushMs\":-0.5" },
+    };
+    for (const auto& [field, settings] : outOfRange) {
+        const RetVal<TakeFile> loaded = load(settings);
+        EXPECT_FALSE(loaded.ret) << field;
+        EXPECT_NE(loaded.ret.text().find(field), std::string::npos) << loaded.ret.text();
+    }
+
+    const RetVal<TakeFile> edges = load("\"gridTicks\":1,\"tripletUnitTicks\":1,\"minRestTicks\":0,\"brushMs\":0");
+    ASSERT_TRUE(edges.ret) << edges.ret.text();
+    EXPECT_EQ(edges.val.settings.gridTicks, 1);
+    EXPECT_EQ(edges.val.settings.tripletUnitTicks, 1);
+    EXPECT_EQ(edges.val.settings.minRestTicks, 0);
+    EXPECT_DOUBLE_EQ(edges.val.settings.brushMs, 0.0);
+}

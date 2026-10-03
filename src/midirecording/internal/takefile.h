@@ -34,6 +34,7 @@ namespace mu::midirecording {
 //! Everything needed to reproduce a take offline. Times are nanoseconds from
 //! the take's time origin; JSON stores them as decimal strings, since the bundled JSON
 //! writer prints a whole number through int and would cut a time past about 2.1 s to 32 bits.
+//! playbackSecs and the other fractional values round-trip to six decimal places (1 us).
 struct TakeFile {
     static constexpr int CURRENT_VERSION = 1;
 
@@ -54,7 +55,9 @@ struct TakeFile {
 muse::ByteArray takeToJson(const TakeFile& take);
 
 //! Fails on invalid JSON, an unknown version, a missing top-level key, an
-//! event or clock entry with the wrong number of fields, or a time that is not a whole number in a string. Missing settings keys
-//! take the QuantizeSettings defaults.
+//! event or clock entry with the wrong number of fields, a time that is not a
+//! whole number in a string, or a setting out of range: gridTicks or
+//! tripletUnitTicks not above 0, minRestTicks or brushMs negative. Missing
+//! settings keys take the QuantizeSettings defaults.
 muse::RetVal<TakeFile> takeFromJson(const muse::ByteArray& data);
 }
