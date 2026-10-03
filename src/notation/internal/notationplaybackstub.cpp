@@ -83,7 +83,7 @@ void NotationPlaybackStub::triggerMetronome(muse::midi::tick_t)
 {
 }
 
-void NotationPlaybackStub::triggerCountIn(muse::midi::tick_t, muse::secs_t&)
+void NotationPlaybackStub::triggerCountIn(muse::midi::tick_t, int, muse::secs_t&)
 {
 }
 

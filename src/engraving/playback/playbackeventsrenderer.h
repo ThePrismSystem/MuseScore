@@ -55,7 +55,7 @@ public:
     void renderMetronome(const Score* score, const int tick, const muse::mpe::timestamp_t actualTimestamp,
                          const muse::mpe::ArticulationsProfilePtr profile, muse::mpe::PlaybackEventsMap& result) const;
 
-    void renderCountIn(const Score* score, const int tick, const muse::mpe::timestamp_t actualTimestamp,
+    void renderCountIn(const Score* score, const int tick, const int bars, const muse::mpe::timestamp_t actualTimestamp,
                        const muse::mpe::ArticulationsProfilePtr profile, muse::mpe::PlaybackEventsMap& result,
                        muse::mpe::duration_t& countInDuration) const;
 

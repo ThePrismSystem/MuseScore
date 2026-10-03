@@ -3409,7 +3409,7 @@ TEST_F(Engraving_PlaybackEventsRendererTests, CountIn)
     PlaybackEventsMap result;
     duration_t countInDuration = 0;
     int startTick = anacrusisMeasure_1_4->tick().ticks();
-    m_renderer.renderCountIn(score, startTick, 0, m_defaultProfile, result, countInDuration);
+    m_renderer.renderCountIn(score, startTick, 1, 0, m_defaultProfile, result, countInDuration);
 
     // [THEN] 7 quarter note events
     EXPECT_EQ(result.size(), 7);
@@ -3439,7 +3439,7 @@ TEST_F(Engraving_PlaybackEventsRendererTests, CountIn)
     result.clear();
     countInDuration = 0;
     startTick = secondMeasure_4_4->tick().ticks();
-    m_renderer.renderCountIn(score, startTick, 0, m_defaultProfile, result, countInDuration);
+    m_renderer.renderCountIn(score, startTick, 1, 0, m_defaultProfile, result, countInDuration);
 
     // [THEN] 4 quarter note events
     EXPECT_EQ(result.size(), 4);
@@ -3465,7 +3465,7 @@ TEST_F(Engraving_PlaybackEventsRendererTests, CountIn)
     result.clear();
     countInDuration = 0;
     startTick = secondMeasure_4_4->tick().ticks() + 480 + 480;
-    m_renderer.renderCountIn(score, startTick, 0, m_defaultProfile, result, countInDuration);
+    m_renderer.renderCountIn(score, startTick, 1, 0, m_defaultProfile, result, countInDuration);
 
     // [THEN] 6 quarter note events
     EXPECT_EQ(result.size(), 6);
@@ -3495,7 +3495,7 @@ TEST_F(Engraving_PlaybackEventsRendererTests, CountIn)
     result.clear();
     countInDuration = 0;
     startTick = thirdMeasure_3_8->tick().ticks();
-    m_renderer.renderCountIn(score, startTick, 0, m_defaultProfile, result, countInDuration);
+    m_renderer.renderCountIn(score, startTick, 1, 0, m_defaultProfile, result, countInDuration);
 
     // [THEN] 3 quaver note events
     EXPECT_EQ(result.size(), 3);
@@ -3521,7 +3521,7 @@ TEST_F(Engraving_PlaybackEventsRendererTests, CountIn)
     result.clear();
     countInDuration = 0;
     startTick = thirdMeasure_3_8->tick().ticks() + 333;
-    m_renderer.renderCountIn(score, startTick, 0, m_defaultProfile, result, countInDuration); // tick: 240 + 93
+    m_renderer.renderCountIn(score, startTick, 1, 0, m_defaultProfile, result, countInDuration); // tick: 240 + 93
 
     // [THEN] 5 quaver note events (3 + 2)
     constexpr int closestMainBeat = 2880;
@@ -3543,6 +3543,70 @@ TEST_F(Engraving_PlaybackEventsRendererTests, CountIn)
             expectedTimestamp += QUAVER_NOTE_DURATION;
         }
     }
+
+    delete score;
+}
+
+TEST_F(Engraving_PlaybackEventsRendererTests, CountInOfTwoBars)
+{
+    Score* score = ScoreRW::readScore(PLAYBACK_EVENTS_RENDERING_DIR + "count_in.mscx");
+    ASSERT_TRUE(score);
+
+    // [GIVEN] Fulfill articulations profile with dummy patterns
+    m_defaultProfile->setPattern(ArticulationType::Standard, m_dummyPattern);
+
+    const Measure* anacrusisMeasure_1_4 = score->firstMeasure();
+    ASSERT_TRUE(anacrusisMeasure_1_4);
+    const Measure* secondMeasure_4_4 = anacrusisMeasure_1_4->nextMeasure();
+    ASSERT_TRUE(secondMeasure_4_4);
+    const Measure* thirdMeasure_3_8 = secondMeasure_4_4->nextMeasure();
+    ASSERT_TRUE(thirdMeasure_3_8);
+
+    PlaybackEventsMap result;
+    duration_t countInDuration = 0;
+
+    // [WHEN] Two bars before the anacrusis (1/4): two 4/4 bars plus the three missing beats
+    m_renderer.renderCountIn(score, anacrusisMeasure_1_4->tick().ticks(), 2, 0, m_defaultProfile, result, countInDuration);
+
+    // [THEN] 11 quarter note events
+    EXPECT_EQ(result.size(), 11);
+    EXPECT_EQ(countInDuration, QUARTER_NOTE_DURATION * 11);
+
+    // [WHEN] Two bars before a 4/4 downbeat
+    result.clear();
+    countInDuration = 0;
+    m_renderer.renderCountIn(score, secondMeasure_4_4->tick().ticks(), 2, 0, m_defaultProfile, result, countInDuration);
+
+    // [THEN] 8 quarter note events
+    EXPECT_EQ(result.size(), 8);
+    EXPECT_EQ(countInDuration, QUARTER_NOTE_DURATION * 8);
+
+    // [WHEN] Two bars before the 3rd beat of a 4/4 measure
+    result.clear();
+    countInDuration = 0;
+    m_renderer.renderCountIn(score, secondMeasure_4_4->tick().ticks() + 480 + 480, 2, 0, m_defaultProfile, result, countInDuration);
+
+    // [THEN] 10 quarter note events
+    EXPECT_EQ(result.size(), 10);
+    EXPECT_EQ(countInDuration, QUARTER_NOTE_DURATION * 10);
+
+    // [WHEN] Two bars before a 3/8 downbeat
+    result.clear();
+    countInDuration = 0;
+    m_renderer.renderCountIn(score, thirdMeasure_3_8->tick().ticks(), 2, 0, m_defaultProfile, result, countInDuration);
+
+    // [THEN] 6 quaver note events
+    EXPECT_EQ(result.size(), 6);
+    EXPECT_EQ(countInDuration, QUAVER_NOTE_DURATION * 6);
+
+    // [WHEN] No bars
+    result.clear();
+    countInDuration = 0;
+    m_renderer.renderCountIn(score, secondMeasure_4_4->tick().ticks(), 0, 0, m_defaultProfile, result, countInDuration);
+
+    // [THEN] Nothing
+    EXPECT_TRUE(result.empty());
+    EXPECT_EQ(countInDuration, 0);
 
     delete score;
 }
