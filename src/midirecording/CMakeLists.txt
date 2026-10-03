@@ -14,6 +14,8 @@ target_sources(midirecording PRIVATE
     internal/snap.h
     internal/voicebuilder.cpp
     internal/voicebuilder.h
+    internal/quantizer.cpp
+    internal/quantizer.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)

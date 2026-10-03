@@ -27,6 +27,7 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/gridselection_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/snap_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/voicebuilder_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/quantizer_tests.cpp
 )
 
 set(MODULE_TEST_LINK
