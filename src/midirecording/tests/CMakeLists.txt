@@ -23,6 +23,7 @@ set(MODULE_TEST midirecording_tests)
 set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/clockmap_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/notepairing_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/prepare_tests.cpp
 )
 
 set(MODULE_TEST_LINK

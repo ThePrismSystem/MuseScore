@@ -6,6 +6,8 @@ target_sources(midirecording PRIVATE
     internal/clockmap.h
     internal/notepairing.cpp
     internal/notepairing.h
+    internal/prepare.cpp
+    internal/prepare.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)
