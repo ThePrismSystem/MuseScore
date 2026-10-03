@@ -86,21 +86,25 @@ TEST_F(MidiRecording_PrepareTests, OnsetsTooFarApartInTimeStaySeparate)
 
 TEST_F(MidiRecording_PrepareTests, OnsetsTooFarApartInTicksStaySeparate)
 {
-    // A quarter of a 120-tick grid step is 30 ticks
+    // Half of a 120-tick grid step is 60 ticks
     const auto notes = groupChords({ prepareTestNote(60, 1000, 1400, 0.0, 400.0),
-                                     prepareTestNote(64, 1040, 1400, 20.0, 400.0) }, 120);
+                                     prepareTestNote(64, 1070, 1400, 20.0, 400.0) }, 120);
 
     EXPECT_EQ(notes[0].onTick, 1000);
-    EXPECT_EQ(notes[1].onTick, 1040);
+    EXPECT_EQ(notes[1].onTick, 1070);
 }
 
 TEST_F(MidiRecording_PrepareTests, ClusterIsMeasuredFromItsFirstOnset)
 {
+    // Every step is 50 ticks, within half a grid step, but 1150 is 150 ticks from the first onset,
+    // past one grid step, so it starts a cluster of its own
     const auto notes = groupChords({ prepareTestNote(60, 1000, 1400, 0.0, 400.0),
-                                     prepareTestNote(62, 1025, 1400, 10.0, 400.0),
-                                     prepareTestNote(64, 1050, 1400, 20.0, 400.0) }, 120);
+                                     prepareTestNote(62, 1050, 1400, 10.0, 400.0),
+                                     prepareTestNote(64, 1100, 1400, 20.0, 400.0),
+                                     prepareTestNote(65, 1150, 1400, 30.0, 400.0) }, 120);
 
-    EXPECT_EQ(notes[0].onTick, 1000);
-    EXPECT_EQ(notes[1].onTick, 1000);
+    EXPECT_EQ(notes[0].onTick, 1050);
+    EXPECT_EQ(notes[1].onTick, 1050);
     EXPECT_EQ(notes[2].onTick, 1050);
+    EXPECT_EQ(notes[3].onTick, 1150);
 }

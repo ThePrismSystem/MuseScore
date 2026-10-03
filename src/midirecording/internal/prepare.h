@@ -26,8 +26,10 @@
 #include "recordingtypes.h"
 
 namespace mu::midirecording {
-//! Onsets closer than this (and a quarter grid step) to a cluster's first onset join it
-constexpr double CHORD_WINDOW_MS = 40.0;
+//! An onset joins a cluster only within this and half a grid step of the cluster's latest onset
+constexpr double CHORD_STEP_MS = 40.0;
+//! An onset joins a cluster only within this and one grid step of the cluster's first onset
+constexpr double CHORD_SPAN_MS = 60.0;
 
 //! Drops notes held for less than brushMs: a finger grazing a neighbouring key
 std::vector<TimedNote> dropBrushes(const std::vector<TimedNote>& notes, double brushMs);
@@ -36,8 +38,10 @@ std::vector<TimedNote> dropBrushes(const std::vector<TimedNote>& notes, double b
 //! takeStartTick; anything earlier was played during the count-in and is dropped
 std::vector<TimedNote> applyAnticipation(const std::vector<TimedNote>& notes, int takeStartTick, int gridTicks);
 
-//! Onsets within a quarter grid step and CHORD_WINDOW_MS of a cluster's first
-//! onset belong to that cluster, and every note in it takes the cluster's
-//! median onset (the lower median for an even count). Ordered by onset.
+//! An onset joins the current cluster when it lies within half a grid step and
+//! CHORD_STEP_MS of the cluster's latest onset, and within one grid step and
+//! CHORD_SPAN_MS of its first, so a roll chains note by note up to a cap.
+//! Every note in a cluster takes its median onset (the lower median for an
+//! even count). Ordered by onset.
 std::vector<TimedNote> groupChords(const std::vector<TimedNote>& notes, int gridTicks);
 }

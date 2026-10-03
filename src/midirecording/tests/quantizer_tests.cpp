@@ -43,6 +43,14 @@ static TimedNote quantizerTestNote(int pitch, int onTick, int offTick, double ms
     return note;
 }
 
+static TimedNote quantizerTestNoteMs(int pitch, int onTick, int offTick, double onMs, double offMs)
+{
+    TimedNote note = quantizerTestNote(pitch, onTick, offTick);
+    note.onMs = onMs;
+    note.heldMs = offMs - onMs;
+    return note;
+}
+
 static std::vector<MeasureSpan> quantizerTestMeasures(int count)
 {
     std::vector<MeasureSpan> measures;
@@ -302,6 +310,66 @@ TEST_F(MidiRecording_QuantizerTests, TwoHandChordSpreadOver55MsIsOneChord)
     ASSERT_EQ(result.events.size(), 2u);
     expectQuantizedEvent(result.events[0], 0, 960, { 48, 64, 67 });
     expectQuantizedEvent(result.events[1], 960, 960, {});
+}
+
+TEST_F(MidiRecording_QuantizerTests, RollStartingLateStaysOneChord)
+{
+    // Each onset is within 30 ms of the one before and 55 ms of the first; the median, 38, snaps to 0
+    const std::vector<TimedNote> notes { quantizerTestNoteMs(48, 14, 912, 15.0, 950.0), quantizerTestNoteMs(64, 38, 917, 40.0, 955.0),
+                                         quantizerTestNoteMs(67, 67, 922, 70.0, 960.0) };
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    ASSERT_EQ(result.events.size(), 2u);
+    expectQuantizedEvent(result.events[0], 0, 960, { 48, 64, 67 });
+    expectQuantizedEvent(result.events[1], 960, 960, {});
+    expectNothingTied(result);
+}
+
+TEST_F(MidiRecording_QuantizerTests, RollAtFastTempoStartsAsOneChord)
+{
+    // 160 bpm. Steps of 35 ticks (27 and 28 ms) and a span of 70 ticks (55 ms) form one cluster; its median, 35, snaps to 0
+    const std::vector<TimedNote> notes { quantizerTestNoteMs(48, 0, 896, 0.0, 700.0), quantizerTestNoteMs(64, 35, 902, 27.0, 705.0),
+                                         quantizerTestNoteMs(67, 70, 909, 55.0, 710.0) };
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    ASSERT_FALSE(result.events.empty());
+    EXPECT_EQ(result.events[0].startTick, 0);
+    EXPECT_EQ(result.events[0].pitches, std::vector<int>({ 48, 64, 67 }));
+    for (size_t i = 1; i < result.events.size(); ++i) {
+        EXPECT_EQ(result.events[i].pitches, result.events[i].tiedFromPrevious) << "a note starts at " << result.events[i].startTick;
+    }
+}
+
+TEST_F(MidiRecording_QuantizerTests, FastNotesDoNotChainIntoAChord)
+{
+    // 45 ms (43 ticks) apart: within half a 16th, but past the 40 ms step. Grouped, both would start at 0.
+    const std::vector<TimedNote> notes { quantizerTestNoteMs(60, 30, 73, 31.25, 76.25), quantizerTestNoteMs(62, 73, 480, 76.25, 500.0) };
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    ASSERT_EQ(result.events.size(), 3u);
+    expectQuantizedEvent(result.events[0], 0, 120, { 60 });
+    expectQuantizedEvent(result.events[1], 120, 360, { 62 });
+    expectQuantizedEvent(result.events[2], 480, 1440, {});
+    expectNothingTied(result);
+}
+
+TEST_F(MidiRecording_QuantizerTests, ChainStopsAtTheSpanCap)
+{
+    // Onsets 25 ms (24 ticks) apart. The fourth is 75 ms from the first, past 60 ms, so it starts a new
+    // cluster: the first three take their median, 24, and snap to 0; the fourth snaps from 72 to 120.
+    const std::vector<TimedNote> notes { quantizerTestNoteMs(48, 0, 940, 0.0, 979.0), quantizerTestNoteMs(52, 24, 940, 25.0, 979.0),
+                                         quantizerTestNoteMs(55, 48, 940, 50.0, 979.0), quantizerTestNoteMs(60, 72, 940, 75.0, 979.0) };
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    ASSERT_EQ(result.events.size(), 3u);
+    expectQuantizedEvent(result.events[0], 0, 120, { 48, 52, 55 });
+    expectQuantizedEvent(result.events[1], 120, 840, { 48, 52, 55, 60 });
+    EXPECT_EQ(result.events[1].tiedFromPrevious, std::vector<int>({ 48, 52, 55 }));
+    expectQuantizedEvent(result.events[2], 960, 960, {});
 }
 
 TEST_F(MidiRecording_QuantizerTests, ShortNotesNeverGoBelowTheGrid)

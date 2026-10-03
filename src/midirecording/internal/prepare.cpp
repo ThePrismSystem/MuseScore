@@ -66,14 +66,17 @@ std::vector<TimedNote> mu::midirecording::groupChords(const std::vector<TimedNot
         return a.onMs < b.onMs;
     });
 
-    const int tickWindow = gridTicks / 4;
+    const int stepTicks = gridTicks / 2;
+    const int spanTicks = gridTicks;
 
     size_t begin = 0;
     while (begin < sorted.size()) {
         size_t end = begin + 1;
         while (end < sorted.size()
-               && sorted[end].onTick - sorted[begin].onTick <= tickWindow
-               && sorted[end].onMs - sorted[begin].onMs <= CHORD_WINDOW_MS) {
+               && sorted[end].onTick - sorted[end - 1].onTick <= stepTicks
+               && sorted[end].onMs - sorted[end - 1].onMs <= CHORD_STEP_MS
+               && sorted[end].onTick - sorted[begin].onTick <= spanTicks
+               && sorted[end].onMs - sorted[begin].onMs <= CHORD_SPAN_MS) {
             ++end;
         }
 
