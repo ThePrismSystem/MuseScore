@@ -53,6 +53,7 @@ public:
     muse::async::Channel<std::vector<const Note*> > notesReceived() const override;
 
     void onRealtimeAdvance() override;
+    void setPreviewOnly(bool previewOnly) override;
 
 private:
     mu::engraving::Score* score() const;
@@ -100,6 +101,7 @@ private:
 
     bool m_shouldDisableMetronome = false;
     bool m_holdingNotesInInputByDuration = false;
+    bool m_previewOnly = false;
 
     struct PlayingNote {
         bool isPreview = false;
