@@ -31,9 +31,10 @@ namespace mu::midirecording {
 //! thread through a queue, so a sample can only ever arrive late: the true
 //! line lies on or above the sampled points, and the intercept comes from a
 //! high percentile of the residuals rather than their mean. A sample is used
-//! only when the position has advanced since the sample before it, at no more
-//! than four times real time, so a count-in, a seek and a repeated report are
-//! all left out. The first sample is never used.
+//! only when the position has advanced since the sample before it, by no more
+//! than four times the host time between them plus 0.1 s, so a count-in, a
+//! seek and a repeated report are all left out while reports the queue
+//! delivered bunched together are kept. The first sample is never used.
 class ClockMap
 {
 public:

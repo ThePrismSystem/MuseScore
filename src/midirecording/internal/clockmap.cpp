@@ -27,8 +27,10 @@
 using namespace mu::midirecording;
 
 static constexpr double CLOCKMAP_ADVANCE_EPSILON_SECS = 1e-6;
-//! Playback seconds per host second above which a step is a seek, not playback
+//! A step faster than this many playback seconds per host second, beyond the slack, is a seek
 static constexpr double CLOCKMAP_MAX_SPEED = 4.0;
+//! Allows for reports bunched by the queue: a seek jumps seconds, queue jitter is milliseconds
+static constexpr double CLOCKMAP_JUMP_SLACK_SECS = 0.1;
 static constexpr double CLOCKMAP_INTERCEPT_PERCENTILE = 0.9;
 static constexpr double CLOCKMAP_NS_PER_SEC = 1e9;
 
@@ -87,7 +89,7 @@ void ClockMap::refit() const
     for (size_t i = 1; i < m_samples.size(); ++i) {
         const double dSecs = m_samples[i].playbackSecs - m_samples[i - 1].playbackSecs;
         const double dHost = static_cast<double>(m_samples[i].hostNs - m_samples[i - 1].hostNs) / CLOCKMAP_NS_PER_SEC;
-        if (dSecs > CLOCKMAP_ADVANCE_EPSILON_SECS && dSecs <= CLOCKMAP_MAX_SPEED * dHost) {
+        if (dSecs > CLOCKMAP_ADVANCE_EPSILON_SECS && dSecs <= CLOCKMAP_MAX_SPEED * dHost + CLOCKMAP_JUMP_SLACK_SECS) {
             used.push_back(i);
         }
     }

@@ -142,6 +142,23 @@ TEST_F(MidiRecording_ClockMapTests, RepeatedReportMidTakeIsIgnored)
     EXPECT_NEAR(map.secsAt(clockMapTestNs(0.75)), 0.75, 1e-9);
 }
 
+TEST_F(MidiRecording_ClockMapTests, QueueDelayedReportsDoNotHideOnTimeOnes)
+{
+    // Every even report arrives on time and every odd one 9 ms late, so an on-time report comes 1 ms
+    // after a late one: 10 ms of playback in 1 ms, well inside four times real time plus the slack.
+    // All 100 reports from i = 1 are used: the slope fits to 1.000027 and the 90th-percentile residual
+    // (report 22, on time) is 0.018995, so secsAt(3 s) = 0.981 * 1.000027 + 0.018995 = 1.000021.
+    // Dropping the on-time reports instead leaves only the late ones, an exact line 10 ms above an
+    // origin at 2.019 s, and secsAt(3 s) = 0.991: 9 ms low.
+    ClockMap map;
+    for (int i = 0; i <= 100; ++i) {
+        map.addSample({ clockMapTestNs(2.0 + 0.01 * i + (i % 2 ? 0.009 : 0.0)), 0.01 * i });
+    }
+
+    ASSERT_TRUE(map.isValid());
+    EXPECT_NEAR(map.secsAt(clockMapTestNs(3.0)), 1.0000211, 1e-6);
+}
+
 TEST_F(MidiRecording_ClockMapTests, PlateauOnlyIsInvalid)
 {
     ClockMap map;
