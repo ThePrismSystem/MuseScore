@@ -39,4 +39,9 @@ using SecsToTick = std::function<int (double secs)>;
 //! before the clock map, and stays correct at any record speed. Fails when the
 //! clock map is not valid.
 muse::RetVal<QuantizeResult> quantizeTake(const TakeFile& take, const std::vector<MeasureSpan>& measures, const SecsToTick& secsToTick);
+
+//! The same, through the measures and time map stored in the take, so a take
+//! file replays with no score. Fails when the time map is not valid, or as
+//! the overload above does.
+muse::RetVal<QuantizeResult> quantizeTake(const TakeFile& take);
 }

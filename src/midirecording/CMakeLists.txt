@@ -8,6 +8,8 @@ target_sources(midirecording PRIVATE
     internal/rawevents.h
     internal/timemap.cpp
     internal/timemap.h
+    internal/notatedtext.cpp
+    internal/notatedtext.h
     internal/notepairing.cpp
     internal/notepairing.h
     internal/prepare.cpp

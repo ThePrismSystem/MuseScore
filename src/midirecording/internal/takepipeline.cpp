@@ -28,6 +28,7 @@
 #include "clockmap.h"
 #include "notepairing.h"
 #include "quantizer.h"
+#include "timemap.h"
 
 using namespace muse;
 using namespace mu::midirecording;
@@ -59,4 +60,18 @@ RetVal<QuantizeResult> mu::midirecording::quantizeTake(const TakeFile& take, con
     result.val = quantize(notes, measures, take.startTick, take.settings);
     result.ret = make_ret(Ret::Code::Ok);
     return result;
+}
+
+RetVal<QuantizeResult> mu::midirecording::quantizeTake(const TakeFile& take)
+{
+    if (!timeMapIsValid(take.timeMap)) {
+        RetVal<QuantizeResult> result;
+        result.ret = make_ret(Ret::Code::UnknownError, std::string("take time map has fewer than two knots, or does not rise"));
+        return result;
+    }
+
+    const std::vector<TimeKnot>& timeMap = take.timeMap;
+    return quantizeTake(take, take.measures, [&timeMap](double secs) {
+        return timeMapSecsToTick(timeMap, secs);
+    });
 }
