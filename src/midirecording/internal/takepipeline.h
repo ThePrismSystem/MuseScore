@@ -33,9 +33,10 @@ namespace mu::midirecording {
 using SecsToTick = std::function<int (double secs)>;
 
 //! Turns a captured take into notation exactly as the live recorder does after
-//! Stop: fit the clock map, map each event's host time to playback seconds,
-//! subtract the latency compensation, convert to ticks, pair notes and
-//! quantize. Fails when the clock has fewer than two samples after playback
-//! started moving.
+//! Stop: fit the clock map, subtract the latency compensation from each
+//! event's host time, map that to playback seconds, convert to ticks, pair
+//! notes and quantize. The latency is real time, so it comes off in host time,
+//! before the clock map, and stays correct at any record speed. Fails when the
+//! clock has fewer than two samples after playback started moving.
 muse::RetVal<QuantizeResult> quantizeTake(const TakeFile& take, const std::vector<MeasureSpan>& measures, const SecsToTick& secsToTick);
 }

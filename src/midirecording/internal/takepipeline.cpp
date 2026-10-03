@@ -21,6 +21,8 @@
  */
 #include "takepipeline.h"
 
+#include <cmath>
+#include <cstdint>
 #include <string>
 
 #include "clockmap.h"
@@ -30,7 +32,7 @@
 using namespace muse;
 using namespace mu::midirecording;
 
-static constexpr double TAKEPIPELINE_MS_PER_SEC = 1000.0;
+static constexpr double TAKEPIPELINE_NS_PER_MS = 1e6;
 
 RetVal<QuantizeResult> mu::midirecording::quantizeTake(const TakeFile& take, const std::vector<MeasureSpan>& measures,
                                                        const SecsToTick& secsToTick)
@@ -47,9 +49,9 @@ RetVal<QuantizeResult> mu::midirecording::quantizeTake(const TakeFile& take, con
         return result;
     }
 
-    const double latencySecs = take.latencyMs / TAKEPIPELINE_MS_PER_SEC;
+    const int64_t latencyNs = std::llround(take.latencyMs * TAKEPIPELINE_NS_PER_MS);
     const NsToTick nsToTick = [&](int64_t ns) {
-        return secsToTick(clockMap.secsAt(ns) - latencySecs);
+        return secsToTick(clockMap.secsAt(ns - latencyNs));
     };
 
     const std::vector<TimedNote> notes = pairNotes(take.events, take.stopNs, nsToTick);

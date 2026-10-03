@@ -83,6 +83,42 @@ TEST_F(MidiRecording_TakePipelineTests, RecordedQuartersComeBackAsQuarters)
     EXPECT_EQ(result.val.takeEndTick, 1920);
 }
 
+TEST_F(MidiRecording_TakePipelineTests, LatencyIsRemovedInRealTimeAtHalfSpeed)
+{
+    TakeFile take;
+    take.latencyMs = 200.0;
+
+    // Count-in for two seconds, then playback at half speed
+    for (int i = 0; i < 200; ++i) {
+        take.clock.push_back({ takePipelineTestNs(i * 0.01), 0.0 });
+    }
+    for (int i = 0; i <= 800; ++i) {
+        const double t = 2.0 + i * 0.01;
+        take.clock.push_back({ takePipelineTestNs(t), 0.5 * (t - 2.0) });
+    }
+
+    // Heard 200 ms of real time late: one second of real time is half a second of playback, a quarter at 120 bpm.
+    // Subtracting the latency from playback seconds instead would put every onset 0.1 s (96 ticks) early.
+    const int pitches[] = { 60, 62, 64, 65 };
+    for (int k = 0; k < 4; ++k) {
+        const double heard = 2.0 + 1.0 * k + 0.200;
+        take.events.push_back({ takePipelineTestNs(heard), true, pitches[k], 90 });
+        take.events.push_back({ takePipelineTestNs(heard + 0.9), false, pitches[k], 0 });
+    }
+    take.stopNs = takePipelineTestNs(8.0);
+
+    const RetVal<QuantizeResult> result = quantizeTake(take, takePipelineTestMeasures(), takePipelineTestSecsToTick);
+
+    ASSERT_TRUE(result.ret) << result.ret.text();
+    ASSERT_EQ(result.val.events.size(), 4u);
+    for (int k = 0; k < 4; ++k) {
+        EXPECT_EQ(result.val.events[k].startTick, 480 * k);
+        EXPECT_EQ(result.val.events[k].ticks, 480);
+        EXPECT_EQ(result.val.events[k].pitches, std::vector<int>({ pitches[k] }));
+    }
+    EXPECT_EQ(result.val.takeEndTick, 1920);
+}
+
 TEST_F(MidiRecording_TakePipelineTests, TakeWithoutUsableClockIsAnError)
 {
     TakeFile take;
