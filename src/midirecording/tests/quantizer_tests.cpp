@@ -253,3 +253,14 @@ TEST_F(MidiRecording_QuantizerTests, ExtendMeasuresWithNoneStartsIn44)
     ASSERT_EQ(measures.size(), 1u);
     EXPECT_EQ(measures[0].ticks, 1920);
 }
+
+TEST_F(MidiRecording_QuantizerTests, MeasureEndForReleaseOutsideEveryMeasureIsTheReleaseItself)
+{
+    const std::vector<MeasureSpan> measures = quantizerTestMeasures(2);
+
+    EXPECT_EQ(measureEndForRelease(measures, 0), 0);
+    EXPECT_EQ(measureEndForRelease(measures, 1920), 1920);
+    EXPECT_EQ(measureEndForRelease(measures, 1921), 3840);
+    EXPECT_EQ(measureEndForRelease(measures, 5000), 5000);
+    EXPECT_EQ(measureEndForRelease({}, 700), 700);
+}

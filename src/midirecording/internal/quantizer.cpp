@@ -55,7 +55,7 @@ int mu::midirecording::measureEndForRelease(const std::vector<MeasureSpan>& meas
         }
     }
 
-    return measures.empty() ? tick : measures.back().startTick + measures.back().ticks;
+    return tick;
 }
 
 QuantizeResult mu::midirecording::quantize(const std::vector<TimedNote>& notes, const std::vector<MeasureSpan>& measures,

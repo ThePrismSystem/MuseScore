@@ -31,7 +31,8 @@ namespace mu::midirecording {
 std::vector<MeasureSpan> extendMeasures(const std::vector<MeasureSpan>& measures, int toTick);
 
 //! End of the measure a release at tick belongs to; a release exactly on a
-//! barline belongs to the measure before it
+//! barline belongs to the measure before it; a release in no measure (before
+//! the first, or past the last) ends the take at the release itself
 int measureEndForRelease(const std::vector<MeasureSpan>& measures, int tick);
 
 //! The whole quantizing pass over one take: drop brushes, apply anticipation,
