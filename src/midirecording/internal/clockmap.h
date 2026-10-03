@@ -30,8 +30,10 @@ namespace mu::midirecording {
 //! Maps host time to playback position. Position reports reach the main
 //! thread through a queue, so a sample can only ever arrive late: the true
 //! line lies on or above the sampled points, and the intercept comes from a
-//! high percentile of the residuals rather than their mean. Samples taken
-//! before the position starts moving (the count-in) are left out.
+//! high percentile of the residuals rather than their mean. A sample is used
+//! only when the position has advanced since the sample before it, at no more
+//! than four times real time, so a count-in, a seek and a repeated report are
+//! all left out. The first sample is never used.
 class ClockMap
 {
 public:
@@ -40,7 +42,8 @@ public:
 
     const std::vector<ClockSample>& samples() const;
 
-    //! At least two samples after the playback position starts advancing
+    //! At least two used samples, whose fit rises: a count-in, a seek and a
+    //! repeated report are all left out
     bool isValid() const;
 
     //! Playback seconds per host second; 0 while invalid

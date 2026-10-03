@@ -127,3 +127,16 @@ TEST_F(MidiRecording_TakePipelineTests, TakeWithoutUsableClockIsAnError)
 
     EXPECT_FALSE(quantizeTake(take, takePipelineTestMeasures(), takePipelineTestSecsToTick).ret);
 }
+
+TEST_F(MidiRecording_TakePipelineTests, TakeWithOnlyCountInClockIsAnError)
+{
+    TakeFile take;
+    for (int i = 0; i < 200; ++i) {
+        take.clock.push_back({ takePipelineTestNs(i * 0.01), 0.0 });
+    }
+    take.events.push_back({ takePipelineTestNs(1.0), true, 60, 90 });
+    take.events.push_back({ takePipelineTestNs(1.5), false, 60, 0 });
+    take.stopNs = takePipelineTestNs(2.0);
+
+    EXPECT_FALSE(quantizeTake(take, takePipelineTestMeasures(), takePipelineTestSecsToTick).ret);
+}

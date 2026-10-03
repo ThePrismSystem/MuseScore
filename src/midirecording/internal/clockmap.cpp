@@ -27,6 +27,8 @@
 using namespace mu::midirecording;
 
 static constexpr double CLOCKMAP_ADVANCE_EPSILON_SECS = 1e-6;
+//! Playback seconds per host second above which a step is a seek, not playback
+static constexpr double CLOCKMAP_MAX_SPEED = 4.0;
 static constexpr double CLOCKMAP_INTERCEPT_PERCENTILE = 0.9;
 static constexpr double CLOCKMAP_NS_PER_SEC = 1e9;
 
@@ -81,28 +83,27 @@ void ClockMap::refit() const
     m_slope = 0.0;
     m_intercept = 0.0;
 
-    if (m_samples.empty()) {
-        return;
+    std::vector<size_t> used;
+    for (size_t i = 1; i < m_samples.size(); ++i) {
+        const double dSecs = m_samples[i].playbackSecs - m_samples[i - 1].playbackSecs;
+        const double dHost = static_cast<double>(m_samples[i].hostNs - m_samples[i - 1].hostNs) / CLOCKMAP_NS_PER_SEC;
+        if (dSecs > CLOCKMAP_ADVANCE_EPSILON_SECS && dSecs <= CLOCKMAP_MAX_SPEED * dHost) {
+            used.push_back(i);
+        }
     }
 
-    const double plateau = m_samples.front().playbackSecs;
-    size_t first = 0;
-    while (first < m_samples.size() && m_samples[first].playbackSecs <= plateau + CLOCKMAP_ADVANCE_EPSILON_SECS) {
-        ++first;
-    }
-
-    const size_t count = m_samples.size() - first;
+    const size_t count = used.size();
     if (count < 2) {
         return;
     }
 
-    m_originNs = m_samples[first].hostNs;
+    m_originNs = m_samples[used.front()].hostNs;
 
     double sumX = 0.0;
     double sumY = 0.0;
     double sumXX = 0.0;
     double sumXY = 0.0;
-    for (size_t i = first; i < m_samples.size(); ++i) {
+    for (size_t i : used) {
         const double x = static_cast<double>(m_samples[i].hostNs - m_originNs) / CLOCKMAP_NS_PER_SEC;
         const double y = m_samples[i].playbackSecs;
         sumX += x;
@@ -117,11 +118,15 @@ void ClockMap::refit() const
         return;
     }
 
-    m_slope = (n * sumXY - sumX * sumY) / denominator;
+    const double slope = (n * sumXY - sumX * sumY) / denominator;
+    if (slope <= 0.0) {
+        return;
+    }
+    m_slope = slope;
 
     std::vector<double> residuals;
     residuals.reserve(count);
-    for (size_t i = first; i < m_samples.size(); ++i) {
+    for (size_t i : used) {
         const double x = static_cast<double>(m_samples[i].hostNs - m_originNs) / CLOCKMAP_NS_PER_SEC;
         residuals.push_back(m_samples[i].playbackSecs - m_slope * x);
     }

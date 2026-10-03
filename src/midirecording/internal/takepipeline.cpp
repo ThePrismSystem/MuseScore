@@ -45,7 +45,7 @@ RetVal<QuantizeResult> mu::midirecording::quantizeTake(const TakeFile& take, con
     }
 
     if (!clockMap.isValid()) {
-        result.ret = make_ret(Ret::Code::UnknownError, std::string("take has fewer than two clock samples after playback started"));
+        result.ret = make_ret(Ret::Code::UnknownError, std::string("take clock has fewer than two usable samples, or runs backward"));
         return result;
     }
 
