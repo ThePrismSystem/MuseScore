@@ -53,12 +53,22 @@ static TakeFile takeFileTestTake()
     take.settings.overlaps = OverlapMode::Cut;
     take.events = { { TAKEFILE_TEST_THREE_HOURS_NS, true, 60, 101 }, { TAKEFILE_TEST_THREE_HOURS_NS + 77, false, 60, 0 } };
     take.clock = { { 1000, 0.0 }, { TAKEFILE_TEST_THREE_HOURS_NS + 50, 1.25 } };
+    take.measures = { { 960, 1920, 4, 4 }, { 2880, 1440, 3, 4 } };
+    take.timeMap = { { 0.25, 960 }, { 1.75, 2400 } };
     return take;
 }
 
 static const char* TAKEFILE_TEST_HEADER
     = "\"version\":1,\"startTick\":0,\"staffIdx\":0,\"voice\":0,\"replaceMode\":\"span\",\"countInBars\":1,"
-      "\"recordSpeedPercent\":100,\"latencyMs\":0,\"stopNs\":\"0\"";
+      "\"recordSpeedPercent\":100,\"latencyMs\":0,\"stopNs\":\"0\",\"measures\":[],\"timeMap\":[]";
+
+//! A minimal valid take file with one piece of text replaced
+static std::string takeFileTestJsonWith(const std::string& from, const std::string& to)
+{
+    std::string json = std::string("{") + TAKEFILE_TEST_HEADER + ",\"settings\":{},\"events\":[],\"clock\":[]}";
+    json.replace(json.find(from), from.size(), to);
+    return json;
+}
 
 TEST_F(MidiRecording_TakeFileTests, RoundTripKeepsEverything)
 {
@@ -94,6 +104,14 @@ TEST_F(MidiRecording_TakeFileTests, RoundTripKeepsEverything)
     ASSERT_EQ(back.clock.size(), 2u);
     EXPECT_EQ(back.clock[1].hostNs, TAKEFILE_TEST_THREE_HOURS_NS + 50);
     EXPECT_DOUBLE_EQ(back.clock[1].playbackSecs, 1.25);
+    ASSERT_EQ(back.measures.size(), 2u);
+    EXPECT_EQ(back.measures[1].startTick, 2880);
+    EXPECT_EQ(back.measures[1].ticks, 1440);
+    EXPECT_EQ(back.measures[1].sigN, 3);
+    EXPECT_EQ(back.measures[1].sigD, 4);
+    ASSERT_EQ(back.timeMap.size(), 2u);
+    EXPECT_DOUBLE_EQ(back.timeMap[1].secs, 1.75);
+    EXPECT_EQ(back.timeMap[1].tick, 2400);
 }
 
 TEST_F(MidiRecording_TakeFileTests, RejectsInvalidJson)
@@ -176,4 +194,22 @@ TEST_F(MidiRecording_TakeFileTests, RejectsSettingsOutOfRange)
     EXPECT_EQ(edges.val.settings.tripletUnitTicks, 1);
     EXPECT_EQ(edges.val.settings.minRestTicks, 0);
     EXPECT_DOUBLE_EQ(edges.val.settings.brushMs, 0.0);
+}
+
+TEST_F(MidiRecording_TakeFileTests, RejectsMissingMeasuresOrTimeMap)
+{
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith(",\"measures\":[]", "").c_str())).ret);
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith(",\"timeMap\":[]", "").c_str())).ret);
+}
+
+TEST_F(MidiRecording_TakeFileTests, RejectsMalformedMeasureOrTimeMap)
+{
+    const std::string measures = "\"measures\":[]";
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith(measures, "\"measures\":[[0,1920,4]]").c_str())).ret);
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith(measures, "\"measures\":[[0,0,4,4]]").c_str())).ret);
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith(measures, "\"measures\":[[0,1920,0,4]]").c_str())).ret);
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith(measures, "\"measures\":[[0,1920,4,0]]").c_str())).ret);
+    EXPECT_FALSE(takeFromJson(ByteArray(takeFileTestJsonWith("\"timeMap\":[]", "\"timeMap\":[[0.5]]").c_str())).ret);
+
+    EXPECT_TRUE(takeFromJson(ByteArray(takeFileTestJsonWith(measures, "\"measures\":[[0,1920,4,4]]").c_str())).ret);
 }

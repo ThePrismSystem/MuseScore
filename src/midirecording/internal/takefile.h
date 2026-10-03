@@ -50,13 +50,16 @@ struct TakeFile {
     QuantizeSettings settings;
     std::vector<RawEvent> events;
     std::vector<ClockSample> clock;
+    std::vector<MeasureSpan> measures;   // from the take's first measure to the end of the score
+    std::vector<TimeKnot> timeMap;       // playback seconds at score ticks, while the take ran
 };
 
 muse::ByteArray takeToJson(const TakeFile& take);
 
 //! Fails on invalid JSON, an unknown version, a missing top-level key, an
-//! event or clock entry with the wrong number of fields, a time that is not a
-//! whole number in a string, or a setting out of range: gridTicks or
+//! event, clock, measure or time map entry with the wrong number of fields,
+//! a time that is not a whole number in a string, a measure whose length or
+//! time signature is not above 0, or a setting out of range: gridTicks or
 //! tripletUnitTicks not above 0, minRestTicks or brushMs negative. Missing
 //! settings keys take the QuantizeSettings defaults.
 muse::RetVal<TakeFile> takeFromJson(const muse::ByteArray& data);

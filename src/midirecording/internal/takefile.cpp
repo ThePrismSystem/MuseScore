@@ -74,6 +74,17 @@ ByteArray mu::midirecording::takeToJson(const TakeFile& take)
         clock.append(JsonArray({ JsonValue(std::to_string(sample.hostNs)), JsonValue(sample.playbackSecs) }));
     }
 
+    JsonArray measures;
+    for (const MeasureSpan& measure : take.measures) {
+        measures.append(JsonArray({ JsonValue(measure.startTick), JsonValue(measure.ticks), JsonValue(measure.sigN),
+                                    JsonValue(measure.sigD) }));
+    }
+
+    JsonArray timeMap;
+    for (const TimeKnot& knot : take.timeMap) {
+        timeMap.append(JsonArray({ JsonValue(knot.secs), JsonValue(knot.tick) }));
+    }
+
     JsonObject root;
     root.set("version", take.version);
     root.set("startTick", take.startTick);
@@ -87,6 +98,8 @@ ByteArray mu::midirecording::takeToJson(const TakeFile& take)
     root.set("settings", settings);
     root.set("events", events);
     root.set("clock", clock);
+    root.set("measures", measures);
+    root.set("timeMap", timeMap);
 
     return JsonDocument(root).toJson();
 }
@@ -102,7 +115,7 @@ RetVal<TakeFile> mu::midirecording::takeFromJson(const ByteArray& data)
     const JsonObject root = document.rootObject();
     static const char* const REQUIRED_KEYS[] = {
         "version", "startTick", "staffIdx", "voice", "replaceMode", "countInBars",
-        "recordSpeedPercent", "latencyMs", "stopNs", "settings", "events", "clock"
+        "recordSpeedPercent", "latencyMs", "stopNs", "settings", "events", "clock", "measures", "timeMap"
     };
     for (const char* key : REQUIRED_KEYS) {
         if (!root.contains(key)) {
@@ -173,6 +186,28 @@ RetVal<TakeFile> mu::midirecording::takeFromJson(const ByteArray& data)
             return takeFileError("take file clock sample " + std::to_string(i) + " has a time that is not a whole number in a string");
         }
         take.clock.push_back({ hostNs, fields.at(1).toDouble() });
+    }
+
+    const JsonArray measures = root.value("measures").toArray();
+    for (size_t i = 0; i < measures.size(); ++i) {
+        const JsonArray fields = measures.at(i).toArray();
+        if (fields.size() != 4) {
+            return takeFileError("take file measure " + std::to_string(i) + " does not have 4 fields");
+        }
+        const MeasureSpan measure { fields.at(0).toInt(), fields.at(1).toInt(), fields.at(2).toInt(), fields.at(3).toInt() };
+        if (measure.ticks <= 0 || measure.sigN <= 0 || measure.sigD <= 0) {
+            return takeFileError("take file measure " + std::to_string(i) + " has a length or time signature not above 0");
+        }
+        take.measures.push_back(measure);
+    }
+
+    const JsonArray timeMap = root.value("timeMap").toArray();
+    for (size_t i = 0; i < timeMap.size(); ++i) {
+        const JsonArray fields = timeMap.at(i).toArray();
+        if (fields.size() != 2) {
+            return takeFileError("take file time map entry " + std::to_string(i) + " does not have 2 fields");
+        }
+        take.timeMap.push_back({ fields.at(0).toDouble(), fields.at(1).toInt() });
     }
 
     RetVal<TakeFile> result;
