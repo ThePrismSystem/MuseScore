@@ -22,6 +22,7 @@ set(MODULE_TEST muse_midi_test)
 
 set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/midievent_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/midiclock_tests.cpp
     )
 
 set(MODULE_TEST_LINK

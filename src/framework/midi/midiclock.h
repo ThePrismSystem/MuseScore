@@ -5,7 +5,7 @@
  * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2025 MuseScore Limited and others
+ * Copyright (C) 2026 MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,27 +19,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
-#include "midi/imidiinport.h"
+#include <cstdint>
 
 namespace muse::midi {
-class MidiInPortStub : public IMidiInPort
-{
-public:
-    MidiInPortStub() = default;
+//! Monotonic time in nanoseconds, on the clock the MIDI input ports stamp
+//! timestampedEventReceived() with. On macOS this is mach_absolute_time,
+//! which pauses while the machine sleeps; std::chrono::steady_clock there
+//! keeps counting, so the two must not be mixed.
+int64_t midiClockNowNs();
 
-    MidiDeviceList availableDevices() const override;
-    async::Notification availableDevicesChanged() const override;
-
-    Ret connect(const MidiDeviceID& deviceID) override;
-    void disconnect() override;
-    bool isConnected() const override;
-    MidiDeviceID deviceID() const override;
-    async::Notification deviceChanged() const override;
-
-    async::Channel<tick_t, Event> eventReceived() const override;
-    async::Channel<int64_t, Event> timestampedEventReceived() const override;
-};
+//! Host clock ticks to nanoseconds for a numer/denom timebase, without
+//! overflowing for any realistic uptime. A zero denominator gives 0.
+int64_t hostTicksToNs(uint64_t ticks, uint32_t numer, uint32_t denom);
 }

@@ -61,3 +61,8 @@ async::Channel<tick_t, Event> DummyMidiInPort::eventReceived() const
 {
     return m_eventReceived;
 }
+
+async::Channel<int64_t, Event> DummyMidiInPort::timestampedEventReceived() const
+{
+    return m_timestampedEventReceived;
+}

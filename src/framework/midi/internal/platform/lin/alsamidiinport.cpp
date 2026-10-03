@@ -26,6 +26,7 @@
 #include <alsa/seq_midi_event.h>
 
 #include "midierrors.h"
+#include "midiclock.h"
 #include "global/translation.h"
 #include "global/defer.h"
 #include "log.h"
@@ -231,6 +232,11 @@ async::Channel<tick_t, Event> AlsaMidiInPort::eventReceived() const
     return m_eventReceived;
 }
 
+async::Channel<int64_t, Event> AlsaMidiInPort::timestampedEventReceived() const
+{
+    return m_timestampedEventReceived;
+}
+
 Ret AlsaMidiInPort::run()
 {
     if (!isConnected()) {
@@ -340,6 +346,7 @@ void AlsaMidiInPort::doProcess()
         e = e.toMIDI20();
         if (e) {
             m_eventReceived.send(static_cast<tick_t>(ev->time.tick), e);
+            m_timestampedEventReceived.send(midiClockNowNs(), e);
         }
 
         sleep();

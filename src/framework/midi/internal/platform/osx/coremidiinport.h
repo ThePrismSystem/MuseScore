@@ -46,6 +46,7 @@ public:
     async::Notification deviceChanged() const override;
 
     async::Channel<tick_t, Event> eventReceived() const override;
+    async::Channel<int64_t, Event> timestampedEventReceived() const override;
 
 private:
     Ret run();
@@ -62,6 +63,7 @@ private:
     bool m_running = false;
 
     async::Channel<tick_t, Event > m_eventReceived;
+    async::Channel<int64_t, Event> m_timestampedEventReceived;
 };
 }
 
