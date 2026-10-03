@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -29,6 +30,9 @@ namespace mu::midirecording {
 //! Mirrors mu::engraving::Constants::DIVISION
 constexpr int TICKS_PER_QUARTER = 480;
 constexpr int TICKS_PER_WHOLE = 4 * TICKS_PER_QUARTER;
+
+//! Mirrors mu::engraving::VOICES
+constexpr size_t VOICES_PER_STAFF = 4;
 
 //! A note-on or note-off as captured, in nanoseconds from the take's time origin
 struct RawEvent {
