@@ -42,7 +42,8 @@ public:
     virtual void onRealtimeAdvance() = 0;
 
     //! While on, MIDI input only sounds the notes played: it neither starts
-    //! note input nor writes to the score
+    //! note input nor writes to the score. Callers end note input before turning
+    //! it on: realtime input already running stops by itself once note input ends.
     virtual void setPreviewOnly(bool previewOnly) = 0;
 };
 

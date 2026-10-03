@@ -109,7 +109,7 @@ muse::async::Channel<std::vector<const Note*> > NotationMidiInput::notesReceived
 
 void NotationMidiInput::onRealtimeAdvance()
 {
-    if (!isNoteInputMode()) {
+    if (m_previewOnly || !isNoteInputMode()) {
         return;
     }
 
