@@ -39,10 +39,12 @@ public:
     MidiDeviceID deviceID() const override;
 
     async::Channel<tick_t, Event> eventReceived() const override;
+    async::Channel<int64_t, Event> timestampedEventReceived() const override;
 
 private:
     MidiDeviceID m_deviceID;
     async::Channel<tick_t, Event> m_eventReceived;
+    async::Channel<int64_t, Event> m_timestampedEventReceived;
 };
 }
 

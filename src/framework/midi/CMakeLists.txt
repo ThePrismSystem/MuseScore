@@ -28,6 +28,8 @@ target_sources(muse_midi PRIVATE
     imidioutport.h
     midievent.h
     miditypes.h
+    midiclock.cpp
+    midiclock.h
     midierrors.h
 
     internal/midiconfiguration.cpp

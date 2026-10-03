@@ -49,6 +49,7 @@ public:
     async::Notification deviceChanged() const override;
 
     async::Channel<tick_t, Event> eventReceived() const override;
+    async::Channel<int64_t, Event> timestampedEventReceived() const override;
 
     // internal;
     void doProcess(uint32_t message, tick_t tick);
@@ -70,6 +71,7 @@ private:
     mutable std::mutex m_devicesMutex;
 
     async::Channel<tick_t, Event > m_eventReceived;
+    async::Channel<int64_t, Event> m_timestampedEventReceived;
 };
 }
 

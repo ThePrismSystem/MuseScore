@@ -62,3 +62,8 @@ async::Channel<tick_t, Event> MidiInPortStub::eventReceived() const
 {
     return {};
 }
+
+async::Channel<int64_t, Event> MidiInPortStub::timestampedEventReceived() const
+{
+    return {};
+}

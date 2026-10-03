@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
 # Copyright (C) 2026 MuseScore Limited and others
@@ -18,15 +18,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE_TEST muse_midi_test)
+set(MODULE_TEST midirecording_tests)
 
 set(MODULE_TEST_SRC
-    ${CMAKE_CURRENT_LIST_DIR}/midievent_tests.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/midiclock_tests.cpp
-    )
+    ${CMAKE_CURRENT_LIST_DIR}/clockmap_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/notepairing_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/prepare_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/gridselection_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/snap_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/voicebuilder_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/quantizer_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/takefile_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/takepipeline_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/performance_tests.cpp
+)
 
 set(MODULE_TEST_LINK
-    muse_midi
+    midirecording
 )
 
 include(SetupGTest)

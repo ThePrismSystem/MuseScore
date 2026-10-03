@@ -47,6 +47,9 @@ public:
     virtual async::Notification deviceChanged() const = 0;
 
     virtual async::Channel<tick_t, Event> eventReceived() const = 0;
+
+    //! The same events as eventReceived(), stamped with midiClockNowNs() time
+    virtual async::Channel<int64_t, Event> timestampedEventReceived() const = 0;
 };
 }
 

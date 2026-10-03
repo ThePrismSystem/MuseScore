@@ -27,6 +27,7 @@
 
 #include "translation.h"
 #include "midierrors.h"
+#include "midiclock.h"
 #include "defer.h"
 #include "log.h"
 
@@ -121,6 +122,16 @@ async::Notification CoreMidiInPort::availableDevicesChanged() const
     return m_availableDevicesChanged;
 }
 
+//! CoreMIDI host time to midiClockNowNs() time; 0 means "now"
+static int64_t coreMidiTimestampToNs(MIDITimeStamp timeStamp)
+{
+    if (timeStamp == 0) {
+        return midiClockNowNs();
+    }
+
+    return static_cast<int64_t>(AudioConvertHostTimeToNanos(timeStamp));
+}
+
 void CoreMidiInPort::initCore()
 {
     OSStatus result;
@@ -209,6 +220,7 @@ void CoreMidiInPort::initCore()
                     if (e) {
                         LOG_MIDI_D() << "Received midi message: " << e.to_string();
                         m_eventReceived.send((tick_t)packet->timeStamp, e);
+                        m_timestampedEventReceived.send(coreMidiTimestampToNs(packet->timeStamp), e);
                     }
                     pos += messageWordCount;
                 }
@@ -244,6 +256,7 @@ void CoreMidiInPort::initCore()
                     if (e) {
                         LOG_MIDI_D() << "Converted to midi 2.0 midi message: " << e.to_string();
                         m_eventReceived.send((tick_t)packet->timeStamp, e);
+                        m_timestampedEventReceived.send(coreMidiTimestampToNs(packet->timeStamp), e);
                     }
                     pos += msgLen;
                 }
@@ -336,6 +349,11 @@ async::Notification CoreMidiInPort::deviceChanged() const
 async::Channel<tick_t, Event> CoreMidiInPort::eventReceived() const
 {
     return m_eventReceived;
+}
+
+async::Channel<int64_t, Event> CoreMidiInPort::timestampedEventReceived() const
+{
+    return m_timestampedEventReceived;
 }
 
 Ret CoreMidiInPort::run()

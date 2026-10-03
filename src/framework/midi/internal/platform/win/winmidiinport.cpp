@@ -30,6 +30,7 @@
 #endif
 
 #include "midierrors.h"
+#include "midiclock.h"
 #include "translation.h"
 #include "defer.h"
 #include "log.h"
@@ -154,6 +155,7 @@ void WinMidiInPort::doProcess(uint32_t message, tick_t tick)
     auto e = Event::fromMidi10Package(message).toMIDI20();
     if (e) {
         m_eventReceived.send(tick, e);
+        m_timestampedEventReceived.send(midiClockNowNs(), e);
     }
 }
 
@@ -162,6 +164,7 @@ void WinMidiInPort::doProcessLongData(uint8_t* data, size_t size, tick_t tick)
     std::vector<Event> events = Event::fromMidi10SysExBytes(data, size);
     for (const Event& e : events) {
         m_eventReceived.send(tick, e);
+        m_timestampedEventReceived.send(midiClockNowNs(), e);
     }
 }
 
@@ -245,6 +248,11 @@ async::Notification WinMidiInPort::deviceChanged() const
 async::Channel<tick_t, Event> WinMidiInPort::eventReceived() const
 {
     return m_eventReceived;
+}
+
+async::Channel<int64_t, Event> WinMidiInPort::timestampedEventReceived() const
+{
+    return m_timestampedEventReceived;
 }
 
 Ret WinMidiInPort::run()
