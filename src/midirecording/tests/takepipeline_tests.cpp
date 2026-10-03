@@ -119,6 +119,47 @@ TEST_F(MidiRecording_TakePipelineTests, LatencyIsRemovedInRealTimeAtHalfSpeed)
     EXPECT_EQ(result.val.takeEndTick, 1920);
 }
 
+TEST_F(MidiRecording_TakePipelineTests, TakeStartAndSettingsReachTheQuantizer)
+{
+    TakeFile take;
+    take.startTick = 480;
+    take.settings.gridTicks = 240;
+
+    for (int i = 0; i < 200; ++i) {
+        take.clock.push_back({ takePipelineTestNs(i * 0.01), 0.0 });
+    }
+    for (int i = 0; i <= 400; ++i) {
+        const double t = 2.0 + i * 0.01;
+        take.clock.push_back({ takePipelineTestNs(t), t - 2.0 });
+    }
+
+    // 380 is 100 ticks before the start: within half an 8th, so it moves to 480 (half a 16th would drop it).
+    // 610 snaps to the 8th line at 720 (the 16th grid would keep 600). Releases 590 and 940 tidy to the
+    // next onsets, and 1400 snaps to 1440.
+    const int notes[][3] = { { 60, 380, 590 }, { 62, 610, 940 }, { 64, 960, 1400 } };
+    for (const auto& note : notes) {
+        take.events.push_back({ takePipelineTestNs(2.0 + note[1] / 960.0), true, note[0], 90 });
+        take.events.push_back({ takePipelineTestNs(2.0 + note[2] / 960.0), false, note[0], 0 });
+    }
+    take.stopNs = takePipelineTestNs(6.0);
+
+    const RetVal<QuantizeResult> result = quantizeTake(take, takePipelineTestMeasures(), takePipelineTestSecsToTick);
+
+    ASSERT_TRUE(result.ret) << result.ret.text();
+    EXPECT_EQ(result.val.takeStartTick, 480);
+    EXPECT_EQ(result.val.takeEndTick, 1920);
+    ASSERT_EQ(result.val.events.size(), 4u);
+    const int expected[][3] = { { 480, 240, 60 }, { 720, 240, 62 }, { 960, 480, 64 } };
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_EQ(result.val.events[i].startTick, expected[i][0]);
+        EXPECT_EQ(result.val.events[i].ticks, expected[i][1]);
+        EXPECT_EQ(result.val.events[i].pitches, std::vector<int>({ expected[i][2] }));
+    }
+    EXPECT_EQ(result.val.events[3].startTick, 1440);
+    EXPECT_EQ(result.val.events[3].ticks, 480);
+    EXPECT_TRUE(result.val.events[3].isRest());
+}
+
 TEST_F(MidiRecording_TakePipelineTests, TakeWithoutUsableClockIsAnError)
 {
     TakeFile take;

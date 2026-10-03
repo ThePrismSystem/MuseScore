@@ -30,6 +30,7 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/quantizer_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takefile_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takepipeline_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/performance_tests.cpp
 )
 
 set(MODULE_TEST_LINK
