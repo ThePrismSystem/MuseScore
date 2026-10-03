@@ -137,6 +137,10 @@ void PlaybackControllerStub::seekBeat(int, int, bool)
 {
 }
 
+void PlaybackControllerStub::playFromTick(muse::midi::tick_t, int)
+{
+}
+
 bool PlaybackControllerStub::actionChecked(const ActionCode&) const
 {
     return false;

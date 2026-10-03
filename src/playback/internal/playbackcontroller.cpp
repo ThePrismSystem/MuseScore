@@ -689,6 +689,42 @@ void PlaybackController::playFromSelection(bool showErrors)
     }
 }
 
+void PlaybackController::playFromTick(const midi::tick_t rawTick, const int countInBars)
+{
+    IF_ASSERT_FAILED(currentPlayer()) {
+        return;
+    }
+
+    const RetVal<midi::tick_t> playedTick = notationPlayback()->playPositionTickByRawTick(rawTick);
+    if (!playedTick.ret) {
+        return;
+    }
+
+    notationPlayback()->sendEventsForChangedTracks();
+    seek(playedTickToSecs(playedTick.val));
+
+    currentPlayer()->prepareToPlay().onResolve(this, [this, rawTick, countInBars](const Ret& ret) {
+        if (!currentPlayer()) {
+            return;
+        }
+
+        if (!ret) {
+            LOGE() << ret.toString();
+        }
+
+        secs_t delay = 0.;
+        if (countInBars > 0) {
+            notationPlayback()->triggerCountIn(rawTick, countInBars, delay);
+        }
+
+        if (isPaused()) {
+            currentPlayer()->resume(delay);
+        } else {
+            currentPlayer()->play(delay);
+        }
+    });
+}
+
 void PlaybackController::play()
 {
     IF_ASSERT_FAILED(currentPlayer()) {

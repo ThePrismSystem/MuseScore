@@ -66,6 +66,7 @@ public:
 
     void seekElement(const notation::EngravingItem* element, bool flushSound = true) override;
     void seekBeat(int measureIndex, int beatIndex, bool flushSound = true) override;
+    void playFromTick(muse::midi::tick_t rawTick, int countInBars) override;
 
     bool actionChecked(const muse::actions::ActionCode& actionCode) const override;
     muse::async::Channel<muse::actions::ActionCode> actionCheckedChanged() const override;
