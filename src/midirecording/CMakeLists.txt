@@ -18,6 +18,8 @@ target_sources(midirecording PRIVATE
     internal/quantizer.h
     internal/takefile.cpp
     internal/takefile.h
+    internal/takepipeline.cpp
+    internal/takepipeline.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)
