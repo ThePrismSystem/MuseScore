@@ -28,6 +28,8 @@ target_sources(midirecording PRIVATE
     internal/takepipeline.h
     internal/takesetup.cpp
     internal/takesetup.h
+    internal/takerecorder.cpp
+    internal/takerecorder.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)
