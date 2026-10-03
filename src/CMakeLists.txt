@@ -80,6 +80,10 @@ else()
     add_subdirectory(stubs/playback)
 endif()
 
+if (MUE_BUILD_MIDIRECORDING_MODULE)
+    add_subdirectory(midirecording)
+endif()
+
 if (MUE_BUILD_PREFERENCES_MODULE)
     add_subdirectory(preferences)
 endif()
