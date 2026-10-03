@@ -28,14 +28,19 @@
 
 namespace mu::midirecording {
 class MidiRecordingConfiguration;
+class MidiRecordingController;
+class MidiRecordingUiActions;
 class MidiRecordingSceneModule : public muse::modularity::IModuleSetup
 {
 public:
     std::string moduleName() const override;
     void registerExports() override;
+    void resolveImports() override;
     void onInit(const muse::IApplication::RunMode& mode) override;
 
 private:
     std::shared_ptr<MidiRecordingConfiguration> m_configuration;
+    std::shared_ptr<MidiRecordingController> m_controller;
+    std::shared_ptr<MidiRecordingUiActions> m_uiActions;
 };
 }

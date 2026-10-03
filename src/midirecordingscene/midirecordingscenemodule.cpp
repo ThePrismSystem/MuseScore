@@ -23,11 +23,15 @@
 #include "midirecordingscenemodule.h"
 
 #include "modularity/ioc.h"
+#include "ui/iuiactionsregister.h"
 
 #include "internal/midirecordingconfiguration.h"
+#include "internal/midirecordingcontroller.h"
+#include "internal/midirecordinguiactions.h"
 
 using namespace muse;
 using namespace muse::modularity;
+using namespace muse::ui;
 using namespace mu::midirecording;
 
 std::string MidiRecordingSceneModule::moduleName() const
@@ -38,11 +42,28 @@ std::string MidiRecordingSceneModule::moduleName() const
 void MidiRecordingSceneModule::registerExports()
 {
     m_configuration = std::make_shared<MidiRecordingConfiguration>();
+    m_controller = std::make_shared<MidiRecordingController>(iocContext());
+    m_uiActions = std::make_shared<MidiRecordingUiActions>(m_controller);
 
     ioc()->registerExport<IMidiRecordingConfiguration>(moduleName(), m_configuration);
 }
 
-void MidiRecordingSceneModule::onInit(const IApplication::RunMode&)
+void MidiRecordingSceneModule::resolveImports()
+{
+    auto ar = ioc()->resolve<IUiActionsRegister>(moduleName());
+    if (ar) {
+        ar->reg(m_uiActions);
+    }
+}
+
+void MidiRecordingSceneModule::onInit(const IApplication::RunMode& mode)
 {
     m_configuration->init();
+
+    if (mode != IApplication::RunMode::GuiApp) {
+        return;
+    }
+
+    m_controller->init();
+    m_uiActions->init();
 }

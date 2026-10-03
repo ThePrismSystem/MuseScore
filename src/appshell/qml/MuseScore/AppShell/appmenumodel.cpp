@@ -510,6 +510,17 @@ MenuItem* AppMenuModel::makeDiagnosticsMenu()
         items << makeMenu(TranslatableString("appshell/menu/diagnostics", "&MuseSampler"), museSamplerItems, "menu-musesampler");
     }
 
+    if (uiActionsRegister()->action("record-midi").isValid()) {
+        MenuItemList midiRecordingItems {
+            makeMenuItem("record-midi"),
+            makeMenuItem("midi-recording-export-take"),
+            makeMenuItem("midi-recording-replay-take"),
+        };
+
+        items << makeMenu(TranslatableString("appshell/menu/diagnostics", "MIDI &recording"), midiRecordingItems,
+                          "menu-midirecording");
+    }
+
     if (globalConfiguration()->devModeEnabled()) {
         MenuItemList actionsItems {
             makeMenuItem("diagnostic-show-actions"),

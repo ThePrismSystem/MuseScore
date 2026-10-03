@@ -7,6 +7,10 @@ target_sources(midirecordingscene PRIVATE
 
     internal/midirecordingconfiguration.cpp
     internal/midirecordingconfiguration.h
+    internal/midirecordingcontroller.cpp
+    internal/midirecordingcontroller.h
+    internal/midirecordinguiactions.cpp
+    internal/midirecordinguiactions.h
 )
 
 target_link_libraries(midirecordingscene PRIVATE midirecording)
