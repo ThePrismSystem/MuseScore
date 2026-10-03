@@ -44,6 +44,12 @@ struct ClockSample {
     double playbackSecs = 0.0;
 };
 
+//! A point on a take's tempo map: playback seconds at a score tick
+struct TimeKnot {
+    double secs = 0.0;
+    int tick = 0;
+};
+
 //! A paired note in score ticks, keeping real time for the thresholds that are physical
 struct TimedNote {
     int pitch = 0;

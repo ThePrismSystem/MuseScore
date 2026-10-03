@@ -6,6 +6,8 @@ target_sources(midirecording PRIVATE
     internal/clockmap.h
     internal/rawevents.cpp
     internal/rawevents.h
+    internal/timemap.cpp
+    internal/timemap.h
     internal/notepairing.cpp
     internal/notepairing.h
     internal/prepare.cpp
