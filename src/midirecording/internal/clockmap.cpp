@@ -34,6 +34,20 @@ static constexpr double CLOCKMAP_JUMP_SLACK_SECS = 0.1;
 static constexpr double CLOCKMAP_INTERCEPT_PERCENTILE = 0.9;
 static constexpr double CLOCKMAP_NS_PER_SEC = 1e9;
 
+bool mu::midirecording::clockSampleAdvances(const ClockSample& prev, const ClockSample& next)
+{
+    const double dSecs = next.playbackSecs - prev.playbackSecs;
+    const double dHost = static_cast<double>(next.hostNs - prev.hostNs) / CLOCKMAP_NS_PER_SEC;
+    return dSecs > CLOCKMAP_ADVANCE_EPSILON_SECS && dSecs <= CLOCKMAP_MAX_SPEED * dHost + CLOCKMAP_JUMP_SLACK_SECS;
+}
+
+bool mu::midirecording::clockSampleJumps(const ClockSample& prev, const ClockSample& next)
+{
+    const double dSecs = next.playbackSecs - prev.playbackSecs;
+    const double dHost = static_cast<double>(next.hostNs - prev.hostNs) / CLOCKMAP_NS_PER_SEC;
+    return dSecs < -CLOCKMAP_ADVANCE_EPSILON_SECS || dSecs > CLOCKMAP_MAX_SPEED * dHost + CLOCKMAP_JUMP_SLACK_SECS;
+}
+
 void ClockMap::addSample(const ClockSample& sample)
 {
     m_samples.push_back(sample);
@@ -87,9 +101,7 @@ void ClockMap::refit() const
 
     std::vector<size_t> used;
     for (size_t i = 1; i < m_samples.size(); ++i) {
-        const double dSecs = m_samples[i].playbackSecs - m_samples[i - 1].playbackSecs;
-        const double dHost = static_cast<double>(m_samples[i].hostNs - m_samples[i - 1].hostNs) / CLOCKMAP_NS_PER_SEC;
-        if (dSecs > CLOCKMAP_ADVANCE_EPSILON_SECS && dSecs <= CLOCKMAP_MAX_SPEED * dHost + CLOCKMAP_JUMP_SLACK_SECS) {
+        if (clockSampleAdvances(m_samples[i - 1], m_samples[i])) {
             used.push_back(i);
         }
     }

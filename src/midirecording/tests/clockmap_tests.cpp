@@ -198,3 +198,30 @@ TEST_F(MidiRecording_ClockMapTests, ClearForgetsSamples)
     EXPECT_FALSE(map.isValid());
     EXPECT_TRUE(map.samples().empty());
 }
+
+TEST_F(MidiRecording_ClockMapTests, SampleRulesTellAdvanceFromPlateauAndJump)
+{
+    const ClockSample previous { clockMapTestNs(1.0), 0.5 };
+
+    const ClockSample advance { clockMapTestNs(1.01), 0.51 };
+    EXPECT_TRUE(clockSampleAdvances(previous, advance));
+    EXPECT_FALSE(clockSampleJumps(previous, advance));
+
+    const ClockSample plateau { clockMapTestNs(1.01), 0.5 };
+    EXPECT_FALSE(clockSampleAdvances(previous, plateau));
+    EXPECT_FALSE(clockSampleJumps(previous, plateau));
+
+    const ClockSample backward { clockMapTestNs(1.01), 0.2 };
+    EXPECT_FALSE(clockSampleAdvances(previous, backward));
+    EXPECT_TRUE(clockSampleJumps(previous, backward));
+
+    // 2.5 s of playback in 10 ms of host time is a seek
+    const ClockSample seek { clockMapTestNs(1.01), 3.0 };
+    EXPECT_FALSE(clockSampleAdvances(previous, seek));
+    EXPECT_TRUE(clockSampleJumps(previous, seek));
+
+    // A report the queue delivered 0.1 ms after the one before still advances
+    const ClockSample bunched { clockMapTestNs(1.0001), 0.52 };
+    EXPECT_TRUE(clockSampleAdvances(previous, bunched));
+    EXPECT_FALSE(clockSampleJumps(previous, bunched));
+}

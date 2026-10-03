@@ -31,10 +31,9 @@ namespace mu::midirecording {
 //! thread through a queue, so a sample can only ever arrive late: the true
 //! line lies on or above the sampled points, and the intercept comes from a
 //! high percentile of the residuals rather than their mean. A sample is used
-//! only when the position has advanced since the sample before it, by no more
-//! than four times the host time between them plus 0.1 s, so a count-in, a
-//! seek and a repeated report are all left out while reports the queue
-//! delivered bunched together are kept. The first sample is never used.
+//! only when clockSampleAdvances holds against the sample before it, so a
+//! count-in, a seek and a repeated report are all left out while reports the
+//! queue delivered bunched together are kept. The first sample is never used.
 class ClockMap
 {
 public:
@@ -64,4 +63,13 @@ private:
     mutable double m_intercept = 0.0;
     mutable int64_t m_originNs = 0;
 };
+
+//! The position moved forward since prev, by no more than four times the
+//! host time between them plus 0.1 s: playback running, its reports possibly
+//! delivered bunched together by the queue
+bool clockSampleAdvances(const ClockSample& prev, const ClockSample& next);
+
+//! The position moved backward, or forward faster than clockSampleAdvances
+//! allows: a seek, or playback stopping and rewinding
+bool clockSampleJumps(const ClockSample& prev, const ClockSample& next);
 }
