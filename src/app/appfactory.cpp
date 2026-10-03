@@ -221,6 +221,10 @@
 #include "stubs/instrumentsscene/instrumentsscenestubmodule.h"
 #endif
 
+#ifdef MUE_BUILD_MIDIRECORDINGSCENE_MODULE
+#include "midirecordingscene/midirecordingscenemodule.h"
+#endif
+
 #ifdef MUE_BUILD_MUSESOUNDS_MODULE
 #include "musesounds/musesoundsmodule.h"
 #else
@@ -403,6 +407,9 @@ std::shared_ptr<muse::IApplication> AppFactory::newGuiApp(const CmdOptions& opti
     app->addModule(new mu::notation::NotationSceneModule());
     app->addModule(new mu::palette::PaletteModule());
     app->addModule(new mu::playback::PlaybackModule());
+#ifdef MUE_BUILD_MIDIRECORDINGSCENE_MODULE
+    app->addModule(new mu::midirecording::MidiRecordingSceneModule());
+#endif
 #ifdef MUE_BUILD_PREFERENCES_MODULE
     app->addModule(new mu::preferences::PreferencesModule());
 #endif
