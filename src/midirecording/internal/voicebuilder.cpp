@@ -81,6 +81,7 @@ std::vector<NotatedEvent> mu::midirecording::buildVoice(const std::vector<TimedN
 
     std::vector<int> breakpoints { takeStartTick, takeEndTick };
     for (TimedNote& note : voice) {
+        note.onTick = std::max(note.onTick, takeStartTick);
         note.offTick = std::min(note.offTick, takeEndTick);
         breakpoints.push_back(note.onTick);
         breakpoints.push_back(note.offTick);

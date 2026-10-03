@@ -187,3 +187,66 @@ TEST_F(MidiRecording_VoiceBuilderTests, ShortRestInTripletGroupIsKept)
     ASSERT_EQ(events.size(), 2u);
     EXPECT_TRUE(events[1].isRest());
 }
+
+TEST_F(MidiRecording_VoiceBuilderTests, VoiceIsClippedToTheTake)
+{
+    const std::vector<GridWindow> windows { { 0, 480, 160, 0, true }, { 480, 1440, 120, 0, false },
+        { 1440, 1920, 160, 1440, true } };
+    const std::vector<TimedNote> notes { voiceTestNote(60, 0, 960), voiceTestNote(62, 960, 1920) };
+
+    const auto events = buildVoice(notes, windows, 480, 1440, OverlapMode::Tied);
+
+    ASSERT_EQ(events.size(), 2u);
+    expectVoiceEvent(events[0], 480, 480, { 60 }, {});
+    expectVoiceEvent(events[1], 960, 480, { 62 }, {});
+    EXPECT_FALSE(events[0].tuplet.has_value());
+    EXPECT_FALSE(events[1].tuplet.has_value());
+}
+
+TEST_F(MidiRecording_VoiceBuilderTests, ZeroLengthNoteLeavesOneRest)
+{
+    const auto events = buildVoice({ voiceTestNote(60, 480, 480) }, voiceTestStraight(), 0, 1920, OverlapMode::Tied);
+
+    ASSERT_EQ(events.size(), 1u);
+    expectVoiceEvent(events[0], 0, 1920, {}, {});
+}
+
+TEST_F(MidiRecording_VoiceBuilderTests, CutModeChordLongestIsCappedAtNextOnset)
+{
+    const std::vector<TimedNote> notes { voiceTestNote(60, 0, 240), voiceTestNote(64, 0, 960), voiceTestNote(67, 480, 960) };
+
+    const auto events = buildVoice(notes, voiceTestStraight(), 0, 1920, OverlapMode::Cut);
+
+    ASSERT_EQ(events.size(), 3u);
+    expectVoiceEvent(events[0], 0, 480, { 60, 64 }, {});
+    expectVoiceEvent(events[1], 480, 480, { 67 }, {});
+    expectVoiceEvent(events[2], 960, 960, {}, {});
+}
+
+TEST_F(MidiRecording_VoiceBuilderTests, RestAfterTripletChordIsKept)
+{
+    NotatedEvent chord = voiceTestEvent(800, 160, { 60 });
+    chord.tuplet = TupletInfo { 480, 480, 3, 2, 160 };
+
+    const auto events = absorbShortRests({ chord, voiceTestEvent(960, 120, {}) }, 240);
+
+    ASSERT_EQ(events.size(), 2u);
+    EXPECT_TRUE(events[1].isRest());
+}
+
+TEST_F(MidiRecording_VoiceBuilderTests, ShortRestAfterRestIsKept)
+{
+    const auto events = absorbShortRests({ voiceTestEvent(0, 480, { 60 }), voiceTestEvent(480, 480, {}),
+                                           voiceTestEvent(960, 120, {}) }, 240);
+
+    ASSERT_EQ(events.size(), 3u);
+    EXPECT_TRUE(events[2].isRest());
+}
+
+TEST_F(MidiRecording_VoiceBuilderTests, RestOfExactlyTheMinimumIsKept)
+{
+    const auto events = absorbShortRests({ voiceTestEvent(0, 240, { 60 }), voiceTestEvent(240, 240, {}) }, 240);
+
+    ASSERT_EQ(events.size(), 2u);
+    expectVoiceEvent(events[0], 0, 240, { 60 }, {});
+}
