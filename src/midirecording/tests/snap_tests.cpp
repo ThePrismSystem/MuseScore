@@ -135,3 +135,67 @@ TEST_F(MidiRecording_SnapTests, OrderedByOnsetThenPitch)
     EXPECT_EQ(notes[1].pitch, 64);
     EXPECT_EQ(notes[2].pitch, 67);
 }
+
+TEST_F(MidiRecording_SnapTests, TidyGapsDoesNotPullBackAnOverlappingRelease)
+{
+    // The raw release is already past the next onset, so tidying must not move it back onto that onset
+    const auto notes = snapNotes({ snapTestNote(60, 0, 560), snapTestNote(62, 480, 960) },
+                                 snapTestStraight(), snapTestSettings(true));
+
+    EXPECT_EQ(notes[0].offTick, 600);
+}
+
+TEST_F(MidiRecording_SnapTests, TidyGapsLeavesGapOfExactlyOneStep)
+{
+    const auto notes = snapNotes({ snapTestNote(60, 0, 360), snapTestNote(62, 480, 960) },
+                                 snapTestStraight(), snapTestSettings(true));
+
+    EXPECT_EQ(notes[0].offTick, 360);
+}
+
+TEST_F(MidiRecording_SnapTests, ZeroLengthInTripletWindowBecomesOneTripletUnit)
+{
+    const auto notes = snapNotes({ snapTestNote(60, 645, 650) }, snapTestTripletBeat(), snapTestSettings(false));
+
+    ASSERT_EQ(notes.size(), 1u);
+    EXPECT_EQ(notes[0].onTick, 640);
+    EXPECT_EQ(notes[0].offTick, 800);
+}
+
+TEST_F(MidiRecording_SnapTests, TidyGapsReachesAnOnsetInAnotherWindow)
+{
+    const auto notes = snapNotes({ snapTestNote(60, 0, 400), snapTestNote(62, 480, 640) },
+                                 snapTestTripletBeat(), snapTestSettings(true));
+
+    ASSERT_EQ(notes.size(), 2u);
+    EXPECT_EQ(notes[0].offTick, 480);
+    EXPECT_EQ(notes[1].offTick, 640);
+}
+
+TEST_F(MidiRecording_SnapTests, DifferentPitchesOnOneLineStaySeparate)
+{
+    const auto notes = snapNotes({ snapTestNote(64, 10, 475), snapTestNote(60, 5, 470) },
+                                 snapTestStraight(), snapTestSettings(false));
+
+    ASSERT_EQ(notes.size(), 2u);
+    EXPECT_EQ(notes[0].pitch, 60);
+    EXPECT_EQ(notes[1].pitch, 64);
+    for (const TimedNote& note : notes) {
+        EXPECT_EQ(note.onTick, 0);
+        EXPECT_EQ(note.offTick, 480);
+    }
+}
+
+TEST_F(MidiRecording_SnapTests, ThreeOverlappingStrikesOfOnePitchAreTrimmedInTurn)
+{
+    const auto notes = snapNotes({ snapTestNote(60, 0, 400), snapTestNote(60, 230, 600), snapTestNote(60, 470, 700) },
+                                 snapTestStraight(), snapTestSettings(false));
+
+    ASSERT_EQ(notes.size(), 3u);
+    EXPECT_EQ(notes[0].onTick, 0);
+    EXPECT_EQ(notes[0].offTick, 240);
+    EXPECT_EQ(notes[1].onTick, 240);
+    EXPECT_EQ(notes[1].offTick, 480);
+    EXPECT_EQ(notes[2].onTick, 480);
+    EXPECT_EQ(notes[2].offTick, 720);
+}
