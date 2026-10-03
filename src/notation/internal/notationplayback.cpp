@@ -438,6 +438,12 @@ void NotationPlayback::setTempoMultiplier(double multiplier)
     m_playbackModel.reload();
 }
 
+void NotationPlayback::setExcludedTracks(const std::set<track_idx_t>& tracks)
+{
+    m_playbackModel.setExcludedTracks(tracks);
+    m_playbackModel.reload();
+}
+
 void NotationPlayback::addSoundFlags(const std::vector<StaffText*>& staffTextList)
 {
     TRACEFUNC;

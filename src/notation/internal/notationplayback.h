@@ -87,6 +87,7 @@ public:
 
     double tempoMultiplier() const override;
     void setTempoMultiplier(double multiplier) override;
+    void setExcludedTracks(const std::set<track_idx_t>& tracks) override;
 
     void addSoundFlags(const std::vector<mu::engraving::StaffText*>& staffTextList) override;
     void removeSoundFlags(const engraving::InstrumentTrackIdSet& trackIdSet) override;

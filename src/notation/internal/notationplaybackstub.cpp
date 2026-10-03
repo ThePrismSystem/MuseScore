@@ -190,6 +190,10 @@ void NotationPlaybackStub::setTempoMultiplier(double)
 {
 }
 
+void NotationPlaybackStub::setExcludedTracks(const std::set<track_idx_t>&)
+{
+}
+
 void NotationPlaybackStub::addSoundFlags(const std::vector<StaffText*>&)
 {
 }

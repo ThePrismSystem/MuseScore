@@ -76,6 +76,10 @@ public:
     bool isMetronomeEnabled() const;
     void setIsMetronomeEnabled(const bool isEnabled);
 
+    //! Tracks whose chords and rests are left out of rendering, e.g. the staff
+    //! being recorded; takes effect on the next reload
+    void setExcludedTracks(const std::set<track_idx_t>& tracks);
+
     const InstrumentTrackId& metronomeTrackId() const;
     InstrumentTrackId chordSymbolsTrackId(const ID& partId) const;
     bool isChordSymbolsTrack(const InstrumentTrackId& trackId) const;
@@ -166,6 +170,7 @@ private:
     bool m_playChordSymbols = true;
     bool m_useScoreDynamicsForOffstreamPlayback = true;
     bool m_metronomeEnabled = true;
+    std::set<track_idx_t> m_excludedTracks;
 
     PlaybackEventsRenderer m_renderer;
     PlaybackSetupDataResolver m_setupResolver;

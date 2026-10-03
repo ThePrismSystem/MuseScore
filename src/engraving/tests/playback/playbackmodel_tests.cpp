@@ -32,6 +32,7 @@
 #include "engraving/dom/part.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/chord.h"
+#include "engraving/dom/segment.h"
 
 #include "engraving/playback/playbackmodel.h"
 
@@ -46,9 +47,36 @@ using namespace muse::mpe;
 using namespace muse;
 
 static const String PLAYBACK_MODEL_TEST_FILES_DIR("playback/playbackmodel_data/");
+static const String PLAYBACK_MODEL_VOICES_FILE("playback/playbackcontext_data/dynamics/dynamics_on_voices.mscx");
 static constexpr duration_t QUARTER_NOTE_DURATION = 500000; // duration in microseconds for 4/4 120BPM
 static constexpr duration_t HALF_NOTE_DURATION = QUARTER_NOTE_DURATION * 2; // duration in microseconds for 1/2 120BPM
 static constexpr duration_t WHOLE_NOTE_DURATION = QUARTER_NOTE_DURATION * 4; // duration in microseconds for 4/4 120BPM
+
+static size_t playbackModelTestNoteEvents(const PlaybackEventsMap& events)
+{
+    size_t count = 0;
+    for (const auto& pair : events) {
+        for (const PlaybackEvent& event : pair.second) {
+            if (std::holds_alternative<mpe::NoteEvent>(event)) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
+static size_t playbackModelTestNotesOnTrack(const Score* score, track_idx_t track)
+{
+    size_t count = 0;
+    for (const Segment* segment = score->firstSegment(SegmentType::ChordRest); segment;
+         segment = segment->next1(SegmentType::ChordRest)) {
+        const EngravingItem* item = segment->element(track);
+        if (item && item->isChord()) {
+            count += toChord(item)->notes().size();
+        }
+    }
+    return count;
+}
 
 class Engraving_PlaybackModelTests : public ::testing::Test, public muse::async::Asyncable
 {
@@ -1405,4 +1433,63 @@ TEST_F(Engraving_PlaybackModelTests, Playback_Setup_Data_MultiInstrument)
             EXPECT_EQ(result.setupData, expectedSetupData.at(instrumentId));
         }
     }
+}
+
+/**
+ * @brief PlaybackModelTests_ExcludedTracks
+ * @details A piano (two staves, two voices on each) and a flute. Excluded tracks are left out of rendering: one voice,
+ *          then a whole staff of a two-staff part, whose other staff keeps sounding
+ */
+TEST_F(Engraving_PlaybackModelTests, ExcludedTracks)
+{
+    // [GIVEN] Piano with notes on both voices of the upper staff and on the lower staff
+    Score* score = ScoreRW::readScore(PLAYBACK_MODEL_VOICES_FILE);
+    ASSERT_TRUE(score);
+    ASSERT_EQ(score->parts().size(), 2);
+
+    const Part* piano = score->parts().at(0);
+    ASSERT_EQ(piano->nstaves(), 2);
+
+    const size_t upperVoice1 = playbackModelTestNotesOnTrack(score, 0);
+    const size_t upperVoice2 = playbackModelTestNotesOnTrack(score, 1);
+    const size_t lower = playbackModelTestNotesOnTrack(score, 4) + playbackModelTestNotesOnTrack(score, 5);
+    ASSERT_GT(upperVoice1, 0u);
+    ASSERT_GT(upperVoice2, 0u);
+    ASSERT_GT(lower, 0u);
+
+    EXPECT_CALL(*m_repositoryMock, defaultProfile(_)).WillRepeatedly(Return(m_defaultProfile));
+
+    PlaybackModel model(modularity::globalCtx());
+    model.profilesRepository.set(m_repositoryMock);
+    model.load(score);
+
+    auto pianoNoteEvents = [&model, piano]() {
+        return playbackModelTestNoteEvents(model.resolveTrackPlaybackData(piano->id(), piano->instrumentId()).originEvents);
+    };
+
+    // [THEN] Every note sounds, one event each
+    ASSERT_EQ(pianoNoteEvents(), upperVoice1 + upperVoice2 + lower);
+
+    // [WHEN] The first voice of the upper staff is excluded
+    model.setExcludedTracks({ 0 });
+    model.reload();
+
+    // [THEN] Only that voice is silent
+    EXPECT_EQ(pianoNoteEvents(), upperVoice2 + lower);
+
+    // [WHEN] The whole upper staff is excluded
+    model.setExcludedTracks({ 0, 1, 2, 3 });
+    model.reload();
+
+    // [THEN] The lower staff of the same part still sounds
+    EXPECT_EQ(pianoNoteEvents(), lower);
+
+    // [WHEN] Nothing is excluded
+    model.setExcludedTracks({});
+    model.reload();
+
+    // [THEN] Every note sounds again
+    EXPECT_EQ(pianoNoteEvents(), upperVoice1 + upperVoice2 + lower);
+
+    delete score;
 }

@@ -223,6 +223,11 @@ void PlaybackModel::setIsMetronomeEnabled(const bool isEnabled)
     reloadMetronomeEvents();
 }
 
+void PlaybackModel::setExcludedTracks(const std::set<track_idx_t>& tracks)
+{
+    m_excludedTracks = tracks;
+}
+
 const InstrumentTrackId& PlaybackModel::metronomeTrackId() const
 {
     return METRONOME_TRACK_ID;
@@ -529,6 +534,10 @@ void PlaybackModel::processSegment(const int tickPositionOffset, const Segment* 
 
         staff_idx_t staffIdx = item->staffIdx();
         if (staffIdxSet.find(staffIdx) == staffIdxSet.cend()) {
+            continue;
+        }
+
+        if (m_excludedTracks.find(item->track()) != m_excludedTracks.cend()) {
             continue;
         }
 

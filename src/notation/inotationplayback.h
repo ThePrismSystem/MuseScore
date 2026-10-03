@@ -22,6 +22,8 @@
 #ifndef MU_NOTATION_INOTATIONPLAYBACK_H
 #define MU_NOTATION_INOTATIONPLAYBACK_H
 
+#include <set>
+
 #include "types/retval.h"
 #include "midi/miditypes.h"
 #include "audio/common/audiotypes.h"
@@ -88,6 +90,9 @@ public:
 
     virtual double tempoMultiplier() const = 0;
     virtual void setTempoMultiplier(double multiplier) = 0;
+
+    //! Tracks left out of playback, e.g. the staff being recorded
+    virtual void setExcludedTracks(const std::set<track_idx_t>& tracks) = 0;
 
     virtual void addSoundFlags(const std::vector<mu::engraving::StaffText*>& staffTextList) = 0;
     virtual void removeSoundFlags(const engraving::InstrumentTrackIdSet& trackIdSet) = 0;
