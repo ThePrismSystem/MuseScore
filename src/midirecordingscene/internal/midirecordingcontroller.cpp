@@ -29,6 +29,7 @@
 #include "engraving/dom/chordrest.h"
 #include "engraving/dom/masterscore.h"
 #include "engraving/dom/measure.h"
+#include "engraving/dom/mscore.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/tuplet.h"
 #include "io/path.h"
@@ -64,8 +65,8 @@ static constexpr double MIDIRECORDINGCONTROLLER_PERCENT = 100.0;
 //! The chord or rest a take starts from: the selected note's chord, the
 //! selected chord or rest, or for a range the chord or rest at its start on
 //! the first voice of its top staff
-static const mu::engraving::ChordRest* midiRecordingControllerSelectedChordRest(const INotationPtr& notation,
-                                                                                const mu::engraving::Score* score)
+static mu::engraving::ChordRest* midiRecordingControllerSelectedChordRest(const INotationPtr& notation,
+                                                                          const mu::engraving::Score* score)
 {
     const INotationSelectionPtr selection = notation->interaction()->selection();
     if (selection->isRange()) {
@@ -73,7 +74,7 @@ static const mu::engraving::ChordRest* midiRecordingControllerSelectedChordRest(
         return score->findCR(selection->range()->startTick(), staffIdx * mu::engraving::VOICES);
     }
 
-    const mu::engraving::EngravingItem* item = selection->element();
+    mu::engraving::EngravingItem* item = selection->element();
     if (!item) {
         return nullptr;
     }
@@ -198,7 +199,7 @@ void MidiRecordingController::startTake()
     }
 
     const mu::engraving::Score* score = masterNotation->masterScore();
-    const mu::engraving::ChordRest* chordRest = midiRecordingControllerSelectedChordRest(notation, score);
+    mu::engraving::ChordRest* chordRest = midiRecordingControllerSelectedChordRest(notation, score);
     if (!chordRest) {
         refuse(muse::trc("midirecording", "Select a note or rest to start recording from."));
         return;
@@ -218,6 +219,15 @@ void MidiRecordingController::startTake()
     context.recordSpeedPercent = configuration()->recordSpeedPercent();
     context.latencyMs = configuration()->latencyMs();
     context.settings = settings;
+
+    if (notation->interaction()->selection()->isRange()) {
+        // Range playback mutes every part outside the range, so select the start element instead
+        mu::engraving::EngravingItem* startItem = chordRest;
+        if (chordRest->isChord()) {
+            startItem = mu::engraving::toChord(chordRest)->upNote();
+        }
+        notation->interaction()->select({ startItem }, mu::engraving::SelectType::SINGLE);
+    }
 
     const INotationNoteInputPtr noteInput = notation->interaction()->noteInput();
     if (noteInput->isNoteInputMode()) {
