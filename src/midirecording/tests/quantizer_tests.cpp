@@ -141,6 +141,37 @@ TEST_F(MidiRecording_QuantizerTests, TripletBeatBetweenStraightNotes)
     EXPECT_FALSE(result.events[5].tuplet.has_value());
 }
 
+TEST_F(MidiRecording_QuantizerTests, TakeStartInsideATripletBeatGivesNoTupletBeforeIt)
+{
+    const std::vector<TimedNote> notes { quantizerTestNote(60, 160, 300), quantizerTestNote(62, 320, 470),
+                                         quantizerTestNote(64, 480, 630), quantizerTestNote(65, 640, 790),
+                                         quantizerTestNote(67, 800, 950) };
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 160, QuantizeSettings());
+
+    ASSERT_FALSE(result.events.empty());
+    for (const NotatedEvent& event : result.events) {
+        EXPECT_GE(event.startTick, 160);
+        if (event.tuplet) {
+            EXPECT_GE(event.tuplet->groupStartTick, 160) << "tuplet group before the take at " << event.startTick;
+        }
+    }
+
+    // The second beat still goes triplet: its error is 75 (three releases 10 ticks off, weighted 0.25)
+    // against 4075 on the straight grid
+    const TupletInfo group { 480, 480, 3, 2, 160 };
+    int tripletEvents = 0;
+    for (const NotatedEvent& event : result.events) {
+        if (event.startTick == 480 || event.startTick == 640 || event.startTick == 800) {
+            EXPECT_EQ(event.ticks, 160);
+            EXPECT_EQ(event.tuplet, group);
+            ++tripletEvents;
+        }
+    }
+    EXPECT_EQ(tripletEvents, 3);
+    expectQuantizedEvent(result.events.back(), 960, 960, {});
+}
+
 TEST_F(MidiRecording_QuantizerTests, HeldNoteUnderMovingNotes)
 {
     const std::vector<TimedNote> notes { quantizerTestNote(48, 0, 1900), quantizerTestNote(60, 0, 230),

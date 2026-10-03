@@ -120,7 +120,8 @@ std::vector<GridWindow> mu::midirecording::chooseGrids(const std::vector<TimedNo
         for (int start = measure.startTick; start < measureEnd; start += windowTicks) {
             const GridWindow straight { start, start + windowTicks, settings.gridTicks, measure.startTick, false };
             const GridWindow triplet { start, start + windowTicks, settings.tripletUnitTicks, start, true };
-            windows.push_back(gridSelectionPrefersTriplet(notes, straight, triplet) ? triplet : straight);
+            const bool beforeTake = start < fromTick;
+            windows.push_back(!beforeTake && gridSelectionPrefersTriplet(notes, straight, triplet) ? triplet : straight);
         }
     }
 

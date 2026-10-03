@@ -61,10 +61,10 @@ GridWindow windowAt(const std::vector<GridWindow>& windows, int tick);
 //! Tiles every measure overlapping [fromTick, toTick) with grid windows. With
 //! triplets on, in a simple meter whose length is a multiple of three triplet
 //! units, a measure is cut into windows of three triplet units from its start,
-//! and each window takes the triplet grid only when at least
-//! MIN_OFF_STRAIGHT_ONSETS of its onsets sit off the straight grid and the
-//! triplet fit error is below TRIPLET_ERROR_RATIO of the straight one.
-//! Otherwise the measure is a single straight window.
+//! and each window takes the triplet grid only when it starts at or after
+//! fromTick, at least MIN_OFF_STRAIGHT_ONSETS of its onsets sit off the
+//! straight grid, and the triplet fit error is below TRIPLET_ERROR_RATIO of the
+//! straight one. Otherwise the measure is a single straight window.
 std::vector<GridWindow> chooseGrids(const std::vector<TimedNote>& notes, const std::vector<MeasureSpan>& measures, int fromTick, int toTick,
                                     const QuantizeSettings& settings);
 }
