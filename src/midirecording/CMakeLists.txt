@@ -10,6 +10,8 @@ target_sources(midirecording PRIVATE
     internal/prepare.h
     internal/gridselection.cpp
     internal/gridselection.h
+    internal/snap.cpp
+    internal/snap.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)
