@@ -32,14 +32,14 @@ class MidiRecording_QuantizerTests : public ::testing::Test
 //! 120 bpm: a quarter note (480 ticks) lasts 500 ms
 static constexpr double QUANTIZER_TEST_MS_PER_TICK = 500.0 / 480.0;
 
-static TimedNote quantizerTestNote(int pitch, int onTick, int offTick)
+static TimedNote quantizerTestNote(int pitch, int onTick, int offTick, double msPerTick = QUANTIZER_TEST_MS_PER_TICK)
 {
     TimedNote note;
     note.pitch = pitch;
     note.onTick = onTick;
     note.offTick = offTick;
-    note.onMs = onTick * QUANTIZER_TEST_MS_PER_TICK;
-    note.heldMs = (offTick - onTick) * QUANTIZER_TEST_MS_PER_TICK;
+    note.onMs = onTick * msPerTick;
+    note.heldMs = (offTick - onTick) * msPerTick;
     return note;
 }
 
@@ -57,6 +57,23 @@ static void expectQuantizedEvent(const NotatedEvent& event, int start, int ticks
     EXPECT_EQ(event.startTick, start);
     EXPECT_EQ(event.ticks, ticks);
     EXPECT_EQ(event.pitches, pitches);
+}
+
+static void expectNothingTied(const QuantizeResult& result)
+{
+    for (const NotatedEvent& event : result.events) {
+        EXPECT_TRUE(event.tiedFromPrevious.empty()) << "tie at " << event.startTick;
+    }
+}
+
+//! C1a: legato eighths, each released 70 ms (67 ticks) after the next onset
+static std::vector<TimedNote> quantizerTestLegatoEighths()
+{
+    std::vector<TimedNote> notes;
+    for (int i = 0; i < 4; ++i) {
+        notes.push_back(quantizerTestNote(60 + 2 * i, 240 * i, 240 * i + 307));
+    }
+    return notes;
 }
 
 TEST_F(MidiRecording_QuantizerTests, EmptyTakeHasNoEvents)
@@ -131,7 +148,85 @@ TEST_F(MidiRecording_QuantizerTests, HeldNoteUnderMovingNotes)
     const QuantizeResult cut = quantize(notes, quantizerTestMeasures(2), 0, cutSettings);
     ASSERT_EQ(cut.events.size(), 4u);
     expectQuantizedEvent(cut.events[0], 0, 240, { 48, 60 });
+    expectQuantizedEvent(cut.events[1], 240, 240, { 62 });
+    expectQuantizedEvent(cut.events[2], 480, 480, { 64 });
     expectQuantizedEvent(cut.events[3], 960, 960, {});
+    expectNothingTied(cut);
+}
+
+TEST_F(MidiRecording_QuantizerTests, LegatoEighthsWithShortOverlapAreCleanEighths)
+{
+    const QuantizeResult result = quantize(quantizerTestLegatoEighths(), quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    // Each release snaps to the 16th past the next onset but runs only 67 ticks beyond it, so it pulls back
+    ASSERT_EQ(result.events.size(), 5u);
+    expectQuantizedEvent(result.events[0], 0, 240, { 60 });
+    expectQuantizedEvent(result.events[1], 240, 240, { 62 });
+    expectQuantizedEvent(result.events[2], 480, 240, { 64 });
+    expectQuantizedEvent(result.events[3], 720, 360, { 66 });
+    expectQuantizedEvent(result.events[4], 1080, 840, {});
+    expectNothingTied(result);
+}
+
+TEST_F(MidiRecording_QuantizerTests, LegatoChordsWithShortOverlapAreCleanChords)
+{
+    // 100 bpm: a quarter lasts 600 ms. Each chord is released 80 ms (64 ticks) after the next one starts.
+    const double msPerTick = 600.0 / 480.0;
+    const std::vector<std::vector<int> > chords { { 48, 64, 67 }, { 50, 65, 69 }, { 48, 64, 67 } };
+    std::vector<TimedNote> notes;
+    for (int i = 0; i < 3; ++i) {
+        for (int pitch : chords[i]) {
+            notes.push_back(quantizerTestNote(pitch, 480 * i, 480 * i + 544, msPerTick));
+        }
+    }
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    // The last release, 1504, snaps to 1560 with no onset to pull back to; the 360-tick rest is not short
+    ASSERT_EQ(result.events.size(), 4u);
+    expectQuantizedEvent(result.events[0], 0, 480, { 48, 64, 67 });
+    expectQuantizedEvent(result.events[1], 480, 480, { 50, 65, 69 });
+    expectQuantizedEvent(result.events[2], 960, 600, { 48, 64, 67 });
+    expectQuantizedEvent(result.events[3], 1560, 360, {});
+    expectNothingTied(result);
+}
+
+TEST_F(MidiRecording_QuantizerTests, LongOverlapStillTies)
+{
+    // The release runs exactly one 16th (120 ticks) past the next onset, which is not short
+    const std::vector<TimedNote> notes { quantizerTestNote(60, 0, 600), quantizerTestNote(62, 480, 960) };
+
+    const QuantizeResult result = quantize(notes, quantizerTestMeasures(2), 0, QuantizeSettings());
+
+    ASSERT_EQ(result.events.size(), 4u);
+    expectQuantizedEvent(result.events[0], 0, 480, { 60 });
+    expectQuantizedEvent(result.events[1], 480, 120, { 60, 62 });
+    EXPECT_EQ(result.events[1].tiedFromPrevious, std::vector<int>({ 60 }));
+    expectQuantizedEvent(result.events[2], 600, 360, { 62 });
+    EXPECT_EQ(result.events[2].tiedFromPrevious, std::vector<int>({ 62 }));
+    expectQuantizedEvent(result.events[3], 960, 960, {});
+}
+
+TEST_F(MidiRecording_QuantizerTests, TidyOffKeepsShortOverlapTied)
+{
+    QuantizeSettings settings;
+    settings.tidyGaps = false;
+
+    const QuantizeResult result = quantize(quantizerTestLegatoEighths(), quantizerTestMeasures(2), 0, settings);
+
+    // Every release snaps to the 16th after the next onset: 360, 600, 840, 1080
+    ASSERT_EQ(result.events.size(), 8u);
+    expectQuantizedEvent(result.events[0], 0, 240, { 60 });
+    expectQuantizedEvent(result.events[1], 240, 120, { 60, 62 });
+    expectQuantizedEvent(result.events[2], 360, 120, { 62 });
+    expectQuantizedEvent(result.events[3], 480, 120, { 62, 64 });
+    expectQuantizedEvent(result.events[4], 600, 120, { 64 });
+    expectQuantizedEvent(result.events[5], 720, 120, { 64, 66 });
+    expectQuantizedEvent(result.events[6], 840, 240, { 66 });
+    expectQuantizedEvent(result.events[7], 1080, 840, {});
+    EXPECT_EQ(result.events[1].tiedFromPrevious, std::vector<int>({ 60 }));
+    EXPECT_EQ(result.events[2].tiedFromPrevious, std::vector<int>({ 62 }));
+    EXPECT_EQ(result.events[6].tiedFromPrevious, std::vector<int>({ 66 }));
 }
 
 TEST_F(MidiRecording_QuantizerTests, ShortRestsAreAbsorbed)

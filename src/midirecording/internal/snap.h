@@ -29,11 +29,13 @@
 namespace mu::midirecording {
 //! Snaps every onset to the grid of the window it falls in. With tidy gaps on,
 //! a raw release that falls short of the next snapped onset by less than one
-//! grid step is moved onto that onset; every other release snaps to the grid
-//! of its own window. A note never ends shorter than one unit of its onset's
-//! window. A note running into the next note of the same pitch ends where
-//! that note starts, and two strikes of one pitch on the same grid line merge
-//! into one. Ordered by onset, then pitch.
+//! grid step is moved onto that onset, and a release that runs past the last
+//! snapped onset before it by less than one grid step is pulled back onto that
+//! onset, as long as the note keeps at least one unit of its onset's window.
+//! Every other release snaps to the grid of its own window. A note never ends
+//! shorter than one unit of its onset's window. A note running into the next
+//! note of the same pitch ends where that note starts, and two strikes of one
+//! pitch on the same grid line merge into one. Ordered by onset, then pitch.
 std::vector<TimedNote> snapNotes(const std::vector<TimedNote>& notes, const std::vector<GridWindow>& windows,
                                  const QuantizeSettings& settings);
 }

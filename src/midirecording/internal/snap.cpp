@@ -22,6 +22,7 @@
 #include "snap.h"
 
 #include <algorithm>
+#include <iterator>
 
 using namespace mu::midirecording;
 
@@ -49,6 +50,14 @@ std::vector<TimedNote> mu::midirecording::snapNotes(const std::vector<TimedNote>
             const auto next = std::upper_bound(onsetLines.begin(), onsetLines.end(), on);
             if (next != onsetLines.end() && note.offTick < *next && *next - note.offTick < settings.gridTicks) {
                 off = *next;
+            }
+
+            const auto overlapped = std::lower_bound(onsetLines.begin(), onsetLines.end(), off);
+            if (overlapped != onsetLines.begin()) {
+                const int line = *std::prev(overlapped);
+                if (line > on && note.offTick - line < settings.gridTicks && line - on >= windowAt(windows, on).unitTicks) {
+                    off = line;
+                }
             }
         }
         if (off <= on) {

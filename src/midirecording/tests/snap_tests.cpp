@@ -136,13 +136,38 @@ TEST_F(MidiRecording_SnapTests, OrderedByOnsetThenPitch)
     EXPECT_EQ(notes[2].pitch, 67);
 }
 
-TEST_F(MidiRecording_SnapTests, TidyGapsDoesNotPullBackAnOverlappingRelease)
+TEST_F(MidiRecording_SnapTests, TidyGapsPullsBackAShortOverlap)
 {
-    // The raw release is already past the next onset, so tidying must not move it back onto that onset
+    // 560 snaps to 600 but runs only 80 ticks past the onset at 480
     const auto notes = snapNotes({ snapTestNote(60, 0, 560), snapTestNote(62, 480, 960) },
                                  snapTestStraight(), snapTestSettings(true));
 
+    EXPECT_EQ(notes[0].offTick, 480);
+}
+
+TEST_F(MidiRecording_SnapTests, TidyGapsDoesNotPullBackALongOverlap)
+{
+    // 610 runs 130 ticks past the onset at 480, more than one grid step
+    const auto notes = snapNotes({ snapTestNote(60, 0, 610), snapTestNote(62, 480, 960) },
+                                 snapTestStraight(), snapTestSettings(true));
+
     EXPECT_EQ(notes[0].offTick, 600);
+}
+
+TEST_F(MidiRecording_SnapTests, TidyGapsKeepsAnOverlapThatWouldLeaveLessThanOneUnit)
+{
+    // A 320-tick straight grid next to a triplet beat: the onset at 320 sits 160 ticks before the
+    // triplet onset at 480, less than its own unit, so the release (560, snapped to 640) stays
+    QuantizeSettings settings = snapTestSettings(true);
+    settings.gridTicks = 320;
+    const std::vector<GridWindow> windows { { 0, 480, 320, 0, false }, { 480, 960, 160, 480, true },
+        { 960, 1920, 320, 0, false } };
+
+    const auto notes = snapNotes({ snapTestNote(60, 330, 560), snapTestNote(62, 480, 960) }, windows, settings);
+
+    ASSERT_EQ(notes.size(), 2u);
+    EXPECT_EQ(notes[0].onTick, 320);
+    EXPECT_EQ(notes[0].offTick, 640);
 }
 
 TEST_F(MidiRecording_SnapTests, TidyGapsLeavesGapOfExactlyOneStep)

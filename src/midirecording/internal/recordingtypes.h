@@ -69,7 +69,7 @@ struct QuantizeSettings {
     int gridTicks = 120;          // 16th
     bool triplets = true;
     int tripletUnitTicks = 160;   // 8th-note triplet
-    bool tidyGaps = true;
+    bool tidyGaps = true;         // closes short gaps and short overlaps at onsets
     int minRestTicks = 240;       // 8th
     double brushMs = 40.0;
     OverlapMode overlaps = OverlapMode::Tied;
