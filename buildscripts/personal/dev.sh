@@ -15,6 +15,7 @@ in_container() {
         -u "$(id -u):$(id -g)" \
         -e HOME=/tmp \
         -e CCACHE_DIR=/ccache \
+        -e QT_QPA_PLATFORM=minimal:enable_fonts \
         -v "${ROOT}:/src" \
         -v "${CCACHE_HOST_DIR}:/ccache" \
         -w /src \

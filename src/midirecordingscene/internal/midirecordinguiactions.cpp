@@ -53,6 +53,11 @@ const UiActionList MidiRecordingUiActions::s_actions = {
              mu::context::CTX_ANY,
              TranslatableString("action", "Replay MIDI take file…")
              ),
+    UiAction("midi-recording-reapply-take",
+             mu::context::UiCtxProjectOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Re-apply to last MIDI take")
+             ),
 };
 
 MidiRecordingUiActions::MidiRecordingUiActions(std::shared_ptr<MidiRecordingController> controller)

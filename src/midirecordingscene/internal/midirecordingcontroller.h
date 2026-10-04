@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -51,7 +52,9 @@ namespace mu::midirecording {
 //! playback up for it (count-in, click, the recorded staff silent, record
 //! speed, repeats off), feeds MIDI and position reports to a TakeRecorder,
 //! and puts playback back as it was once playback has stopped. The finished
-//! take is quantized and reported; writing it into the score comes later.
+//! take is quantized and written into the score as one undo step, and the
+//! written range is selected. Re-apply writes the last take again with the
+//! current settings while it is still the last change.
 class MidiRecordingController : public muse::actions::Actionable, public muse::async::Asyncable, public muse::Contextable
 {
     muse::GlobalInject<IMidiRecordingConfiguration> configuration;
@@ -84,7 +87,10 @@ private:
     void restorePlayback();
     void forgetClosedScore();
     void forgetTakeState();
-    void reportTake(const TakeFile& take);
+    void reportTake(const notation::IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick);
+    void writeTakeIntoScore(const notation::IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick,
+                            const QuantizeResult& result);
+    void reapplyTake();
     void exportTake();
     void replayTake();
     void refuse(const std::string& reason);
@@ -105,8 +111,18 @@ private:
     bool m_playNotesWhenEditingForced = false;
     bool m_playNotesOnMidiInputForced = false;
     double m_savedTempoMultiplier = 1.0;
+    int m_takeFromTick = 0;   // where the take was started from, before it moved back to the grid
     std::optional<int64_t> m_stopNs;
     std::optional<TakeFile> m_lastTake;
+
+    //! The last take written into a score, kept for Re-apply
+    struct WrittenTake {
+        notation::IMasterNotationPtr masterNotation;
+        TakeFile take;
+        int fromTick = 0;
+        size_t undoStateIndex = 0;
+    };
+    std::optional<WrittenTake> m_writtenTake;
     muse::async::Notification m_isRecordingChanged;
 };
 }

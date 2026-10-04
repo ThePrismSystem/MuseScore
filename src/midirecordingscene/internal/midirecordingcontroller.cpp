@@ -31,7 +31,6 @@
 #include "engraving/dom/measure.h"
 #include "engraving/dom/mscore.h"
 #include "engraving/dom/note.h"
-#include "engraving/dom/tuplet.h"
 #include "io/path.h"
 #include "midi/midiclock.h"
 #include "translation.h"
@@ -40,6 +39,7 @@
 #include "midirecording/internal/rawevents.h"
 #include "midirecording/internal/takepipeline.h"
 #include "midirecording/internal/takesetup.h"
+#include "midirecording/internal/takewriter.h"
 #include "midirecording/internal/timemap.h"
 
 #include "log.h"
@@ -52,6 +52,7 @@ using namespace mu::midirecording;
 static const ActionCode RECORD_MIDI_CODE("record-midi");
 static const ActionCode EXPORT_TAKE_CODE("midi-recording-export-take");
 static const ActionCode REPLAY_TAKE_CODE("midi-recording-replay-take");
+static const ActionCode REAPPLY_TAKE_CODE("midi-recording-reapply-take");
 static const ActionCode METRONOME_CODE("metronome");
 static const ActionCode REPEAT_CODE("repeat");
 static const ActionCode MIDI_ON_CODE("midi-on");
@@ -61,6 +62,7 @@ static const ActionCode NOTATION_CANCEL_CODE("action://notation/cancel");
 //! A knot of the take's time map on every 16th
 static constexpr int MIDIRECORDINGCONTROLLER_TIME_MAP_STEP_TICKS = 120;
 static constexpr double MIDIRECORDINGCONTROLLER_PERCENT = 100.0;
+static const muse::TranslatableString MIDIRECORDINGCONTROLLER_UNDO_NAME("undoableAction", "Record MIDI");
 
 //! The chord or rest a take starts from: the selected note's chord, the
 //! selected chord or rest, or for a range the chord or rest at its start on
@@ -99,6 +101,44 @@ static std::vector<MeasureSpan> midiRecordingControllerMeasures(const mu::engrav
     return measures;
 }
 
+//! Where a take is written, from the take's own context
+static TakeTarget midiRecordingControllerTarget(const TakeFile& take, bool useWrittenPitch)
+{
+    TakeTarget target;
+    target.staffIdx = static_cast<mu::engraving::staff_idx_t>(take.staffIdx);
+    target.voice = static_cast<mu::engraving::voice_idx_t>(take.voice);
+    target.replaceVoice = take.replaceMode == "voice";
+    target.useWrittenPitch = useWrittenPitch;
+    return target;
+}
+
+//! Score::findCR answers from a multimeasure rest while they are shown, so a take is not written then
+static bool midiRecordingControllerShowsMultiMeasureRests(const mu::engraving::Score* score)
+{
+    return score->style().styleB(mu::engraving::Sid::createMultiMeasureRests);
+}
+
+//! Selects what the take wrote, from its first chord or rest to its last
+static void midiRecordingControllerSelectWritten(const INotationPtr& notation, const mu::engraving::Score* score,
+                                                 const QuantizeResult& result, const TakeTarget& target)
+{
+    mu::engraving::ChordRest* first = score->findCR(mu::engraving::Fraction::fromTicks(result.takeStartTick), target.track());
+    mu::engraving::ChordRest* last = score->findCR(mu::engraving::Fraction::fromTicks(result.takeEndTick - 1), target.track());
+    if (!first || !last) {
+        return;
+    }
+
+    // A chord is selected through a note of it
+    auto selectable = [](mu::engraving::ChordRest* chordRest) -> mu::engraving::EngravingItem* {
+        if (chordRest->isChord()) {
+            return mu::engraving::toChord(chordRest)->upNote();
+        }
+        return chordRest;
+    };
+    notation->interaction()->select({ selectable(first) }, mu::engraving::SelectType::SINGLE);
+    notation->interaction()->select({ selectable(last) }, mu::engraving::SelectType::RANGE);
+}
+
 MidiRecordingController::MidiRecordingController(const muse::modularity::ContextPtr& iocCtx)
     : muse::Contextable(iocCtx)
 {
@@ -109,6 +149,7 @@ void MidiRecordingController::init()
     dispatcher()->reg(this, RECORD_MIDI_CODE, this, &MidiRecordingController::toggleRecord);
     dispatcher()->reg(this, EXPORT_TAKE_CODE, this, &MidiRecordingController::exportTake);
     dispatcher()->reg(this, REPLAY_TAKE_CODE, this, &MidiRecordingController::replayTake);
+    dispatcher()->reg(this, REAPPLY_TAKE_CODE, this, &MidiRecordingController::reapplyTake);
 
     midiInPort()->timestampedEventReceived().onReceive(this, [this](int64_t ns, const muse::midi::Event& event) {
         if (!m_recorder.isActive()) {
@@ -199,6 +240,11 @@ void MidiRecordingController::startTake()
     }
 
     const mu::engraving::Score* score = masterNotation->masterScore();
+    if (midiRecordingControllerShowsMultiMeasureRests(score)) {
+        refuse(muse::trc("midirecording", "Turn off multimeasure rests to record."));
+        return;
+    }
+
     mu::engraving::ChordRest* chordRest = midiRecordingControllerSelectedChordRest(notation, score);
     if (!chordRest) {
         refuse(muse::trc("midirecording", "Select a note or rest to start recording from."));
@@ -206,21 +252,22 @@ void MidiRecordingController::startTake()
     }
 
     const QuantizeSettings settings = configuration()->quantizeSettings();
-    const mu::engraving::Tuplet* tuplet = chordRest->topTuplet();
-    const int chordRestTick = tuplet ? tuplet->tick().ticks() : chordRest->tick().ticks();
-    const int measureStartTick = score->tick2measure(mu::engraving::Fraction::fromTicks(chordRestTick))->tick().ticks();
+    const bool rangeSelected = notation->interaction()->selection()->isRange();
 
     TakeFile context;
-    context.startTick = takeStartTick(chordRestTick, measureStartTick, settings.gridTicks);
     context.staffIdx = static_cast<int>(chordRest->staffIdx());
     context.voice = static_cast<int>(chordRest->voice());
     context.replaceMode = configuration()->replaceMode();
+
+    // A range starts where it starts, not at the voice-1 chord sounding there, so nothing before it is replaced
+    const int fromTick = rangeSelected ? notation->interaction()->selection()->range()->startTick().ticks() : chordRest->tick().ticks();
+    context.startTick = takeStartTickInScore(score, midiRecordingControllerTarget(context, false).track(), fromTick, settings.gridTicks);
     context.countInBars = configuration()->countInBars();
     context.recordSpeedPercent = configuration()->recordSpeedPercent();
     context.latencyMs = configuration()->latencyMs();
     context.settings = settings;
 
-    if (notation->interaction()->selection()->isRange()) {
+    if (rangeSelected) {
         // Range playback mutes every part outside the range, so select the start element instead
         mu::engraving::EngravingItem* startItem = chordRest;
         if (chordRest->isChord()) {
@@ -238,6 +285,8 @@ void MidiRecordingController::startTake()
     m_takeDeviceId = midiInPort()->deviceID();
     m_sawPlaying = false;
     m_stopNs.reset();
+    m_takeFromTick = fromTick;
+    m_writtenTake.reset();
 
     notation->midiInput()->setPreviewOnly(true);
 
@@ -338,6 +387,10 @@ void MidiRecordingController::onDeviceChanged()
 
 void MidiRecordingController::onNotationChanged()
 {
+    if (m_writtenTake && globalContext()->currentMasterNotation() != m_writtenTake->masterNotation) {
+        m_writtenTake.reset();
+    }
+
     if (!m_takeMasterNotation || globalContext()->currentNotation() == m_takeMasterNotation->notation()) {
         return;
     }
@@ -359,12 +412,15 @@ void MidiRecordingController::finishTake()
     const int64_t stopNs = m_stopNs ? *m_stopNs : muse::midi::midiClockNowNs();
     m_stopNs.reset();
 
+    // restorePlayback forgets the take's score, and the take is written into it afterwards
+    const IMasterNotationPtr masterNotation = m_takeMasterNotation;
+
     std::optional<TakeFile> take = m_recorder.stop(stopNs);
     if (take) {
         // While repeats are still off and the record speed still set
-        take->measures = midiRecordingControllerMeasures(m_takeMasterNotation->masterScore(), take->startTick);
+        take->measures = midiRecordingControllerMeasures(masterNotation->masterScore(), take->startTick);
         if (!take->measures.empty()) {
-            const INotationPlaybackPtr playback = m_takeMasterNotation->playback();
+            const INotationPlaybackPtr playback = masterNotation->playback();
             const MeasureSpan& last = take->measures.back();
             take->timeMap = buildTimeMap(take->measures.front().startTick, last.startTick + last.ticks,
                                          MIDIRECORDINGCONTROLLER_TIME_MAP_STEP_TICKS, [playback](int tick) {
@@ -377,7 +433,7 @@ void MidiRecordingController::finishTake()
     m_isRecordingChanged.notify();
 
     if (take) {
-        reportTake(*take);
+        reportTake(masterNotation, *take, m_takeFromTick);
     }
 }
 
@@ -469,7 +525,7 @@ void MidiRecordingController::forgetTakeState()
     m_takeMasterNotation.reset();
 }
 
-void MidiRecordingController::reportTake(const TakeFile& take)
+void MidiRecordingController::reportTake(const IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick)
 {
     const bool hasNotes = std::any_of(take.events.cbegin(), take.events.cend(), [](const RawEvent& event) {
         return event.on;
@@ -489,10 +545,97 @@ void MidiRecordingController::reportTake(const TakeFile& take)
     }
 
     LOGI() << "MIDI take:\n" << notatedEventsText(result.val);
-    interactive()->info(muse::trc("midirecording", "Take recorded"),
-                        muse::qtrc("midirecording", "Notes recorded: %1. Writing them into the score comes in a later build; "
-                                                    "export the take from Diagnostics > MIDI recording.")
-                        .arg(struckNoteCount(result.val)).toStdString());
+    writeTakeIntoScore(masterNotation, take, fromTick, result.val);
+}
+
+void MidiRecordingController::writeTakeIntoScore(const IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick,
+                                                 const QuantizeResult& result)
+{
+    const INotationPtr notation = masterNotation->notation();
+    const INotationUndoStackPtr undoStack = notation->undoStack();
+    const TakeTarget target = midiRecordingControllerTarget(take, notationConfiguration()->midiUseWrittenPitch().val);
+
+    // Multimeasure rests may have been turned on during the take
+    if (midiRecordingControllerShowsMultiMeasureRests(masterNotation->masterScore())) {
+        m_writtenTake.reset();
+        interactive()->warning(muse::trc("midirecording", "The take could not be written"),
+                               muse::trc("midirecording", "Turn off multimeasure rests to record."));
+        return;
+    }
+
+    undoStack->prepareChanges(MIDIRECORDINGCONTROLLER_UNDO_NAME);
+    const Ret ret = writeTake(masterNotation->masterScore(), result, target);
+    if (!ret) {
+        undoStack->rollbackChanges();
+        m_writtenTake.reset();
+        LOGE() << "MIDI take could not be written: " << ret.text();
+        interactive()->warning(muse::trc("midirecording", "The take could not be written"), ret.text());
+        return;
+    }
+    undoStack->commitChanges();
+    notation->notationChanged().notify();
+
+    midiRecordingControllerSelectWritten(notation, masterNotation->masterScore(), result, target);
+    m_writtenTake = WrittenTake { masterNotation, take, fromTick, undoStack->currentStateIndex() };
+}
+
+void MidiRecordingController::reapplyTake()
+{
+    if (m_recorder.isActive()) {
+        return;
+    }
+
+    const IMasterNotationPtr masterNotation = globalContext()->currentMasterNotation();
+    const INotationPtr notation = globalContext()->currentNotation();
+    if (m_writtenTake && masterNotation == m_writtenTake->masterNotation && notation != masterNotation->notation()) {
+        interactive()->info(muse::trc("midirecording", "Re-apply works in the full score"), std::string());
+        return;
+    }
+    const bool lastChange = m_writtenTake && masterNotation == m_writtenTake->masterNotation && notation == masterNotation->notation()
+                            && notation->undoStack()->currentStateIndex() == m_writtenTake->undoStateIndex
+                            && notation->undoStack()->topMostUndoActionName() == MIDIRECORDINGCONTROLLER_UNDO_NAME;
+    if (!lastChange) {
+        m_writtenTake.reset();
+        interactive()->info(muse::trc("midirecording", "There is no take to re-apply"),
+                            muse::trc("midirecording",
+                                      "Re-apply works on the last take, in the full score, until the score is changed again."));
+        return;
+    }
+    const mu::engraving::Score* score = masterNotation->masterScore();
+    if (midiRecordingControllerShowsMultiMeasureRests(score)) {
+        refuse(muse::trc("midirecording", "Turn off multimeasure rests to record."));
+        return;
+    }
+
+    TakeFile take = m_writtenTake->take;
+    const int fromTick = m_writtenTake->fromTick;
+    take.settings = configuration()->quantizeSettings();
+    take.replaceMode = configuration()->replaceMode();
+    take.latencyMs = configuration()->latencyMs();
+
+    const INotationNoteInputPtr noteInput = notation->interaction()->noteInput();
+    if (noteInput->isNoteInputMode()) {
+        noteInput->endNoteInput();
+    }
+
+    // The start is worked out again on the score as it was before the take, with the grid as it is now
+    notation->interaction()->undo();
+    if (notation->undoStack()->currentStateIndex() >= m_writtenTake->undoStateIndex) {
+        interactive()->warning(muse::trc("midirecording", "The take could not be re-applied"),
+                               muse::trc("midirecording", "Finish the current edit and try again."));
+        return;
+    }
+    take.startTick = takeStartTickInScore(score, midiRecordingControllerTarget(take, false).track(), fromTick, take.settings.gridTicks);
+
+    const RetVal<QuantizeResult> result = quantizeTake(take);
+    if (!result.ret) {
+        m_writtenTake.reset();
+        LOGE() << "MIDI take could not be quantized: " << result.ret.text();
+        interactive()->warning(muse::trc("midirecording", "The take could not be read"), result.ret.text());
+        return;
+    }
+
+    writeTakeIntoScore(masterNotation, take, fromTick, result.val);
 }
 
 void MidiRecordingController::exportTake()
