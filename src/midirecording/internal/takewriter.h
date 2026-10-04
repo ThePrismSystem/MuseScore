@@ -51,10 +51,17 @@ struct TakeTarget {
 //! chord or rest of the target track that sounds across the take's start is
 //! cut there. The take's span is then cleared on the target staff, or on the
 //! target voice alone, keeping dynamics, hairpins, chord symbols, text and
-//! lines. The events are written left to right on the target track, tuplets
-//! included, and ties and rests are regrouped the way the metre reads.
+//! lines. Replacing the span leaves the staff's other voices empty in it. The
+//! events are written left to right on the target track, tuplets included, and
+//! ties and rests are regrouped the way the metre reads.
 //!
-//! Fails, part-way through, when an event has no chord or rest to start on,
-//! a tuplet cannot be made, or a tie has no note to start from.
+//! Fails, part-way through, when the take starts inside a tuplet, an event
+//! has no chord or rest to start on, a tuplet cannot be made, or a tie has no
+//! note to start from.
 muse::Ret writeTake(mu::engraving::Score* score, const QuantizeResult& result, const TakeTarget& target);
+
+//! Where a take from fromTick starts on the track: on the straight grid line
+//! at or before it (takeStartTick), moved back again to the start of any
+//! tuplet sounding across that line, since the writer cannot cut a tuplet
+int takeStartTickInScore(const mu::engraving::Score* score, mu::engraving::track_idx_t track, int fromTick, int gridTicks);
 }

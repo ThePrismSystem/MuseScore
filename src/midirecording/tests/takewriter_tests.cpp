@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "engraving/dom/chord.h"
+#include "engraving/dom/engravingitem.h"
 #include "engraving/dom/masterscore.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/note.h"
@@ -373,4 +374,119 @@ TEST_F(MidiRecording_TakeWriterTests, ReapplyGivesWhatAFreshWriteGives)
     delete fresh;
 
     EXPECT_TRUE(ScoreComp::compareFiles(u"takewriter-reapplied.mscx", u"takewriter-fresh.mscx"));
+}
+
+//! The annotations of one type on ChordRest segments in [fromTick, toTick)
+static int takeWriterTestCount(const Score* score, ElementType type, int fromTick, int toTick)
+{
+    int count = 0;
+    for (const Segment* segment = score->firstSegment(SegmentType::ChordRest); segment;
+         segment = segment->next1(SegmentType::ChordRest)) {
+        if (segment->tick().ticks() < fromTick || segment->tick().ticks() >= toTick) {
+            continue;
+        }
+        for (const EngravingItem* item : segment->annotations()) {
+            count += item->type() == type ? 1 : 0;
+        }
+    }
+    return count;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ReplacingTheSpanKeepsMarkingsAndEmptiesTheOtherVoices)
+{
+    // The take starts inside the voice-1 half note, after the voice-2 quarter at tick 0
+    const QuantizeResult take = takeWriterTestTake(480, 1920, {
+        takeWriterTestEvent(480, 480, { 67 }),
+        takeWriterTestEvent(960, 960, { 69 }),
+    });
+
+    MasterScore* before = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"two-voices.mscx");
+    ASSERT_TRUE(before);
+    ASSERT_EQ(takeWriterTestCount(before, ElementType::DYNAMIC, 480, 1920), 1);
+    ASSERT_EQ(takeWriterTestCount(before, ElementType::STAFF_TEXT, 480, 1920), 1);
+    delete before;
+
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:quarter[72/14] C:quarter[67/15] C:half[69/17]\n"
+              "m1 v2: C:quarter[60/14]\n"
+              "m2 v1: R:measure\n");
+    EXPECT_EQ(takeWriterTestCount(score, ElementType::DYNAMIC, 480, 1920), 1);
+    EXPECT_EQ(takeWriterTestCount(score, ElementType::STAFF_TEXT, 480, 1920), 1);
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ReplacingAVoiceKeepsTheOthers)
+{
+    const QuantizeResult take = takeWriterTestTake(0, 3840, {
+        takeWriterTestEvent(0, 960, { 55 }),
+        takeWriterTestEvent(960, 1440, { 57, 59 }),
+        takeWriterTestEvent(2400, 1440, {}),
+    });
+
+    MasterScore* before = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"two-voices.mscx");
+    ASSERT_TRUE(before);
+    ASSERT_EQ(takeWriterTestText(before, 0).find("m2 v2"), std::string::npos);
+    delete before;
+
+    TakeTarget voice2;
+    voice2.voice = 1;
+    voice2.replaceVoice = true;
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, voice2, ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:half[72/14] C:half[74/16]\n"
+              "m1 v2: C:half[55/15] C:half[57/17~ 59/19~]\n"
+              "m2 v1: R:measure\n"
+              "m2 v2: C:quarter[~57/17 ~59/19] R:quarter R:half\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, TakeStartingInsideATupletIsRefused)
+{
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"blank-g.mscx", takeWriterTestTripletTake(), TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+    const std::string written = takeWriterTestText(score, 0);
+
+    // 2040 is inside the first eighth-note triplet member, 1920 to 2080
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    ret = writeTake(score, takeWriterTestTake(2040, 3840, { takeWriterTestEvent(2040, 1800, {}) }), TakeTarget());
+    score->endCmd(!ret);
+
+    EXPECT_FALSE(ret);
+    EXPECT_EQ(ret.text(), "the take starts inside a tuplet");
+    EXPECT_EQ(takeWriterTestText(score, 0), written);
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, TakeStartMovesBackOverATuplet)
+{
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"blank-g.mscx", takeWriterTestTripletTake(), TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeStartTickInScore(score, 0, 2080, 120), 1920);   // second eighth-note triplet member
+    EXPECT_EQ(takeStartTickInScore(score, 0, 3200, 120), 2880);   // second quarter-note triplet member
+    EXPECT_EQ(takeStartTickInScore(score, 0, 2400, 120), 2400);   // the quarter between the tuplets
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, TakeStartInsideANoteStaysForTheWriterToCut)
+{
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"two-voices.mscx");
+    ASSERT_TRUE(score);
+
+    EXPECT_EQ(takeStartTickInScore(score, 0, 600, 120), 600);   // inside the voice-1 half note, 0 to 960
+    EXPECT_EQ(takeStartTickInScore(score, 0, 650, 120), 600);   // moved back to the 16th grid line
+    delete score;
 }

@@ -29,14 +29,18 @@
 #include "engraving/dom/chord.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/input.h"
+#include "engraving/dom/measure.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/part.h"
+#include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/segment.h"
 #include "engraving/dom/selectionfilter.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/tuplet.h"
+
+#include "takesetup.h"
 
 using namespace muse;
 using namespace mu::engraving;
@@ -107,13 +111,37 @@ static SelectionFilter takeWriterClearFilter()
 
 //! A chord or rest of the track that sounds across the take's start is cut
 //! there, so the take has a chord or rest to start on. Its tie on is dropped.
-static void takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction& start)
+//! A tuplet cannot be cut.
+static Ret takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction& start)
 {
     ChordRest* across = score->findCR(start, track);
     if (!across || across->tick() >= start || across->endTick() <= start) {
-        return;
+        return make_ok();
+    }
+    if (across->tuplet()) {
+        return takeWriterError("the take starts inside a tuplet");
     }
     score->changeCRlen(across, start - across->tick());
+    return make_ok();
+}
+
+//! Replacing the span writes the take in voice 1 alone: the rests the clear
+//! left in voices 2 to 4 go, so those voices are empty there
+static void takeWriterEmptyOtherVoices(Score* score, track_idx_t staffTrack, const Fraction& start, const Fraction& end)
+{
+    std::vector<Rest*> rests;
+    for (Segment* segment = score->tick2segment(start, true, SegmentType::ChordRest); segment && segment->tick() < end;
+         segment = segment->next1(SegmentType::ChordRest)) {
+        for (track_idx_t track = staffTrack + 1; track < staffTrack + VOICES; ++track) {
+            EngravingItem* item = segment->element(track);
+            if (item && item->isRest() && !toRest(item)->tuplet() && toRest(item)->endTick() <= end) {
+                rests.push_back(toRest(item));
+            }
+        }
+    }
+    for (Rest* rest : rests) {
+        score->undoRemoveElement(rest);
+    }
 }
 
 //! Makes the tuplet a group of events is written into: a rest as long as the
@@ -123,6 +151,9 @@ static Ret takeWriterMakeTuplet(Score* score, track_idx_t track, const TupletInf
     const Fraction groupStart = takeWriterTicks(info.groupStartTick);
     const Fraction groupLength = takeWriterTicks(info.groupTicks);
     Segment* segment = score->tick2segment(groupStart, true, SegmentType::ChordRest);
+    if (segment && track % VOICES) {
+        score->expandVoice(segment, track);
+    }
     if (!TDuration::isValid(groupLength) || !segment || !segment->element(track)) {
         return takeWriterError("no place for the tuplet at tick " + std::to_string(info.groupStartTick));
     }
@@ -163,7 +194,10 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
         }
     }
 
-    takeWriterCutAtStart(score, track, start);
+    Ret ret = takeWriterCutAtStart(score, track, start);
+    if (!ret) {
+        return ret;
+    }
 
     Segment* first = score->tick2segment(start, true, SegmentType::ChordRest);
     Segment* last = score->tick2segment(end, true, SegmentType::ChordRest);
@@ -173,6 +207,9 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
     const track_idx_t clearFirst = target.replaceVoice ? track : staffTrack;
     const track_idx_t clearEnd = target.replaceVoice ? track + 1 : staffTrack + VOICES;
     score->deleteRange(first, last, clearFirst, clearEnd, takeWriterClearFilter(), false);
+    if (!target.replaceVoice) {
+        takeWriterEmptyOtherVoices(score, staffTrack, start, end);
+    }
 
     InputState input;
     Chord* previousLast = nullptr;
@@ -182,7 +219,7 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
         Fraction length = takeWriterTicks(event.ticks);
         if (event.tuplet) {
             if (event.tuplet != tuplet) {
-                const Ret ret = takeWriterMakeTuplet(score, track, *event.tuplet, input);
+                ret = takeWriterMakeTuplet(score, track, *event.tuplet, input);
                 if (!ret) {
                     return ret;
                 }
@@ -193,6 +230,10 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
         }
 
         Segment* segment = score->tick2segment(tick, true, SegmentType::ChordRest);
+        // A voice other than voice 1 may not exist in this measure yet
+        if (segment && track % VOICES) {
+            score->expandVoice(segment, track);
+        }
         if (!segment || !segment->element(track)) {
             return takeWriterError("no chord or rest at tick " + std::to_string(event.startTick));
         }
@@ -239,5 +280,21 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
 
     score->regroupNotesAndRests(start, end, track);
     return make_ok();
+}
+
+int takeStartTickInScore(const Score* score, track_idx_t track, int fromTick, int gridTicks)
+{
+    int tick = fromTick;
+    for (;;) {
+        const Measure* measure = score->tick2measure(takeWriterTicks(tick));
+        const int start = measure ? takeStartTick(tick, measure->tick().ticks(), gridTicks) : tick;
+        const ChordRest* across = score->findCR(takeWriterTicks(start), track);
+        const Tuplet* tuplet = across && across->endTick().ticks() > start ? across->topTuplet() : nullptr;
+        if (!tuplet || tuplet->tick().ticks() >= start) {
+            return start;
+        }
+        // Each pass moves back to a tuplet that starts before the last start, so this ends
+        tick = tuplet->tick().ticks();
+    }
 }
 }
