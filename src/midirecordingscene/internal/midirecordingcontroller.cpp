@@ -38,6 +38,7 @@
 
 #include "midirecording/internal/notatedtext.h"
 #include "midirecording/internal/rawevents.h"
+#include "midirecording/internal/settingchoices.h"
 #include "midirecording/internal/takepipeline.h"
 #include "midirecording/internal/takesetup.h"
 #include "midirecording/internal/takewriter.h"
@@ -54,6 +55,7 @@ static const ActionCode RECORD_MIDI_CODE("record-midi");
 static const ActionCode EXPORT_TAKE_CODE("midi-recording-export-take");
 static const ActionCode REPLAY_TAKE_CODE("midi-recording-replay-take");
 static const ActionCode REAPPLY_TAKE_CODE("midi-recording-reapply-take");
+static const ActionCode LATENCY_RESET_CODE("midi-recording-latency-reset");
 static const ActionCode METRONOME_CODE("metronome");
 static const ActionCode REPEAT_CODE("repeat");
 static const ActionCode MIDI_ON_CODE("midi-on");
@@ -158,6 +160,17 @@ void MidiRecordingController::init()
     dispatcher()->reg(this, REPLAY_TAKE_CODE, this, &MidiRecordingController::replayTake);
     dispatcher()->reg(this, REAPPLY_TAKE_CODE, this, &MidiRecordingController::reapplyTake);
 
+    for (const SettingMenu& menu : settingMenus()) {
+        for (const SettingChoice& choice : menu.choices) {
+            dispatcher()->reg(this, choice.code, [this, code = choice.code]() {
+                applySetting(code);
+            });
+        }
+    }
+    dispatcher()->reg(this, LATENCY_RESET_CODE, [this]() {
+        configuration()->setLatencyMs(0.0);
+    });
+
     midiInPort()->timestampedEventReceived().onReceive(this, [this](int64_t ns, const muse::midi::Event& event) {
         if (!m_recorder.isActive()) {
             return;
@@ -180,6 +193,7 @@ void MidiRecordingController::init()
 
     playbackController()->isPlayingChanged().onNotify(this, [this]() {
         onPlayingChanged();
+        m_canToggleRecordChanged.notify();
     });
 
     dispatcher()->preDispatch().onReceive(this, [this](const ActionCode& code) {
@@ -201,6 +215,29 @@ bool MidiRecordingController::isRecording() const
 muse::async::Notification MidiRecordingController::isRecordingChanged() const
 {
     return m_isRecordingChanged;
+}
+
+bool MidiRecordingController::canToggleRecord() const
+{
+    return m_recorder.isActive() || !(playbackController()->isPlaying() || m_restorePending);
+}
+
+muse::async::Notification MidiRecordingController::canToggleRecordChanged() const
+{
+    return m_canToggleRecordChanged;
+}
+
+void MidiRecordingController::applySetting(const ActionCode& code)
+{
+    const SettingChoice* choice = findSettingChoice(code);
+    if (!choice) {
+        return;
+    }
+
+    // A take that is running keeps the settings it started with
+    RecordingSettings recording = configuration()->recordingSettings();
+    choice->choose(recording);
+    configuration()->setRecordingSettings(recording);
 }
 
 void MidiRecordingController::toggleRecord()

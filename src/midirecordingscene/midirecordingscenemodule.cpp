@@ -27,6 +27,7 @@
 
 #include "internal/midirecordingconfiguration.h"
 #include "internal/midirecordingcontroller.h"
+#include "internal/midirecordingmenu.h"
 #include "internal/midirecordinguiactions.h"
 
 using namespace muse;
@@ -46,6 +47,9 @@ void MidiRecordingSceneModule::registerExports()
     m_uiActions = std::make_shared<MidiRecordingUiActions>(m_controller);
 
     ioc()->registerExport<IMidiRecordingConfiguration>(moduleName(), m_configuration);
+
+    m_menu = std::make_shared<MidiRecordingMenu>();
+    ioc()->registerExport<IMidiRecordingMenu>(moduleName(), m_menu);
 }
 
 void MidiRecordingSceneModule::resolveImports()
@@ -66,4 +70,5 @@ void MidiRecordingSceneModule::onInit(const IApplication::RunMode& mode)
 
     m_controller->init();
     m_uiActions->init();
+    m_menu->init();
 }

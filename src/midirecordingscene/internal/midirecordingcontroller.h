@@ -77,6 +77,10 @@ public:
     bool isRecording() const;
     muse::async::Notification isRecordingChanged() const;
 
+    //! Record can be pressed: a take is running, or playback is not
+    bool canToggleRecord() const;
+    muse::async::Notification canToggleRecordChanged() const;
+
 private:
     void toggleRecord();
     void startTake();
@@ -94,6 +98,7 @@ private:
     void exportTake();
     void replayTake();
     void refuse(const std::string& reason);
+    void applySetting(const muse::actions::ActionCode& code);
 
     void onPositionChanged(double secs);
     void onPlayingChanged();
@@ -124,5 +129,6 @@ private:
     };
     std::optional<WrittenTake> m_writtenTake;
     muse::async::Notification m_isRecordingChanged;
+    muse::async::Notification m_canToggleRecordChanged;
 };
 }
