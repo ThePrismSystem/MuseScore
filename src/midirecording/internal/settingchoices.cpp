@@ -100,7 +100,7 @@ static SettingChoice settingChoicesSpeed(int percent)
 {
     return settingChoicesChoice("midi-recording-speed-" + std::to_string(percent),
                                 TranslatableString("action", "%1%").arg(percent),
-                                TranslatableString("action", "MIDI recording: record at %1% of the score's tempo").arg(percent),
+                                TranslatableString("action", "MIDI recording: record at %1% of the score’s tempo").arg(percent),
                                 [percent](const RecordingSettings& settings) { return settings.recordSpeedPercent == percent; },
                                 [percent](RecordingSettings& settings) { settings.recordSpeedPercent = percent; });
 }
