@@ -564,6 +564,7 @@ void MidiRecordingController::forgetTakeState()
     m_playNotesWhenEditingForced = false;
     m_playNotesOnMidiInputForced = false;
     m_takeMasterNotation.reset();
+    m_canToggleRecordChanged.notify();
 }
 
 void MidiRecordingController::reportTake(const IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick)

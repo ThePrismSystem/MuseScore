@@ -83,6 +83,7 @@ void MidiRecordingUiActions::init()
 {
     m_controller->isRecordingChanged().onNotify(this, [this]() {
         m_actionCheckedChanged.send({ RECORD_MIDI_ACTION_CODE });
+        m_actionEnabledChanged.send({ RECORD_MIDI_ACTION_CODE });
     });
 
     m_controller->canToggleRecordChanged().onNotify(this, [this]() {
