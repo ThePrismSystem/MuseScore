@@ -297,3 +297,80 @@ TEST_F(MidiRecording_TakeWriterTests, TieFromANoteThatIsNotThereIsRefused)
               "m2 v1: R:measure\n");
     delete score;
 }
+
+//! Eighth-note triplets with a rest among them, then a quarter tied into a
+//! quarter-note triplet whose second member is two units long and tied on,
+//! one of its two notes, out of the tuplet into the next measure
+static QuantizeResult takeWriterTestTripletTake()
+{
+    const TupletInfo eighths { 1920, 480, 3, 2, 160 };
+    const TupletInfo quarters { 2880, 960, 3, 2, 320 };
+    return takeWriterTestTake(1920, 5760, {
+        takeWriterTestEvent(1920, 160, { 67 }, {}, eighths),
+        takeWriterTestEvent(2080, 160, {}, {}, eighths),
+        takeWriterTestEvent(2240, 160, { 71 }, {}, eighths),
+        takeWriterTestEvent(2400, 480, { 72 }),
+        takeWriterTestEvent(2880, 320, { 72 }, { 72 }, quarters),
+        takeWriterTestEvent(3200, 640, { 74, 77 }, {}, quarters),
+        takeWriterTestEvent(3840, 720, { 74, 77 }, { 74 }),
+        takeWriterTestEvent(4560, 1200, {}),
+    });
+}
+
+TEST_F(MidiRecording_TakeWriterTests, WritesTriplets)
+{
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"blank-g.mscx", takeWriterTestTripletTake(), TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: R:measure\n"
+              "m2 v1: {3:2 C:eighth[67/15] R:eighth C:eighth[71/19] } C:quarter[72/14~]"
+              " {3:2 C:quarter[~72/14] C:half[74/16~ 77/13] }\n"
+              "m3 v1: C:quarter.[~74/16 77/13] R:eighth R:half\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, TupletWithNoSingleNoteValueIsRefused)
+{
+    const QuantizeResult take = takeWriterTestTake(0, 1920, {
+        takeWriterTestEvent(0, 200, { 60 }, {}, TupletInfo { 0, 600, 3, 2, 200 }),
+        takeWriterTestEvent(200, 1720, {}),
+    });
+
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"blank-g.mscx", take, TakeTarget(), ret);
+    ASSERT_TRUE(score);
+
+    EXPECT_FALSE(ret);
+    EXPECT_EQ(ret.text(), "no place for the tuplet at tick 0");
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: R:measure\n"
+              "m2 v1: R:measure\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ReapplyGivesWhatAFreshWriteGives)
+{
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"blank-g.mscx");
+    ASSERT_TRUE(score);
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    ASSERT_TRUE(writeTake(score, takeWriterTestStraightTake(), TakeTarget()));
+    score->endCmd();
+    score->undoRedo(true, nullptr);
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    ASSERT_TRUE(writeTake(score, takeWriterTestTripletTake(), TakeTarget()));
+    score->endCmd();
+    ASSERT_TRUE(ScoreRW::saveScore(score, u"takewriter-reapplied.mscx"));
+    delete score;
+
+    Ret ret;
+    MasterScore* fresh = takeWriterTestWrite(u"blank-g.mscx", takeWriterTestTripletTake(), TakeTarget(), ret);
+    ASSERT_TRUE(fresh);
+    ASSERT_TRUE(ret) << ret.text();
+    ASSERT_TRUE(ScoreRW::saveScore(fresh, u"takewriter-fresh.mscx"));
+    delete fresh;
+
+    EXPECT_TRUE(ScoreComp::compareFiles(u"takewriter-reapplied.mscx", u"takewriter-fresh.mscx"));
+}
