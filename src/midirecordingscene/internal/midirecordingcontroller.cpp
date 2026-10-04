@@ -415,6 +415,10 @@ void MidiRecordingController::startCalibration()
     if (!first) {
         return;
     }
+    // Two measures: in the last measure of the score, the one before it and the last
+    if (!first->nextMeasure() && first->prevMeasure()) {
+        first = first->prevMeasure();
+    }
     const mu::engraving::Measure* last = first->nextMeasure() ? first->nextMeasure() : first;
 
     TakeFile context;
