@@ -253,6 +253,14 @@ void MidiRecordingController::startTake()
     if (m_midiInputForced) {
         dispatcher()->dispatch(MIDI_ON_CODE);
     }
+    m_playNotesWhenEditingForced = !playbackConfiguration()->playNotesWhenEditing();
+    if (m_playNotesWhenEditingForced) {
+        playbackConfiguration()->setPlayNotesWhenEditing(true);
+    }
+    m_playNotesOnMidiInputForced = !playbackConfiguration()->playNotesOnMidiInput();
+    if (m_playNotesOnMidiInputForced) {
+        playbackConfiguration()->setPlayNotesOnMidiInput(true);
+    }
 
     m_savedTempoMultiplier = playbackController()->tempoMultiplier();
     playbackController()->setTempoMultiplier(context.recordSpeedPercent / MIDIRECORDINGCONTROLLER_PERCENT);
@@ -407,14 +415,21 @@ void MidiRecordingController::restorePlayback()
     m_takeMasterNotation->playback()->setExcludedTracks({});
     playbackController()->setTempoMultiplier(m_savedTempoMultiplier);
 
-    if (m_metronomeForced) {
+    //! A toggle the user flipped during the take is left as they set it
+    if (m_metronomeForced && playbackController()->actionChecked(METRONOME_CODE)) {
         dispatcher()->dispatch(METRONOME_CODE);
     }
-    if (m_repeatsForced) {
+    if (m_repeatsForced && !playbackController()->actionChecked(REPEAT_CODE)) {
         dispatcher()->dispatch(REPEAT_CODE);
     }
-    if (m_midiInputForced) {
+    if (m_midiInputForced && playbackController()->actionChecked(MIDI_ON_CODE)) {
         dispatcher()->dispatch(MIDI_ON_CODE);
+    }
+    if (m_playNotesWhenEditingForced) {
+        playbackConfiguration()->setPlayNotesWhenEditing(false);
+    }
+    if (m_playNotesOnMidiInputForced) {
+        playbackConfiguration()->setPlayNotesOnMidiInput(false);
     }
 
     forgetTakeState();
@@ -433,6 +448,12 @@ void MidiRecordingController::forgetClosedScore()
     if (m_midiInputForced) {
         notationConfiguration()->setIsMidiInputEnabled(false);
     }
+    if (m_playNotesWhenEditingForced) {
+        playbackConfiguration()->setPlayNotesWhenEditing(false);
+    }
+    if (m_playNotesOnMidiInputForced) {
+        playbackConfiguration()->setPlayNotesOnMidiInput(false);
+    }
 
     forgetTakeState();
 }
@@ -443,6 +464,8 @@ void MidiRecordingController::forgetTakeState()
     m_metronomeForced = false;
     m_repeatsForced = false;
     m_midiInputForced = false;
+    m_playNotesWhenEditingForced = false;
+    m_playNotesOnMidiInputForced = false;
     m_takeMasterNotation.reset();
 }
 

@@ -38,6 +38,7 @@
 #include "modularity/ioc.h"
 #include "notation/imasternotation.h"
 #include "notation/inotationconfiguration.h"
+#include "playback/iplaybackconfiguration.h"
 #include "playback/iplaybackcontroller.h"
 
 #include "midirecording/internal/takefile.h"
@@ -54,6 +55,7 @@ namespace mu::midirecording {
 class MidiRecordingController : public muse::actions::Actionable, public muse::async::Asyncable, public muse::Contextable
 {
     muse::GlobalInject<IMidiRecordingConfiguration> configuration;
+    muse::GlobalInject<playback::IPlaybackConfiguration> playbackConfiguration;
     muse::GlobalInject<notation::INotationConfiguration> notationConfiguration;
     muse::GlobalInject<muse::IGlobalConfiguration> globalConfiguration;
     muse::GlobalInject<muse::io::IFileSystem> fileSystem;
@@ -100,6 +102,8 @@ private:
     bool m_metronomeForced = false;
     bool m_repeatsForced = false;
     bool m_midiInputForced = false;
+    bool m_playNotesWhenEditingForced = false;
+    bool m_playNotesOnMidiInputForced = false;
     double m_savedTempoMultiplier = 1.0;
     std::optional<int64_t> m_stopNs;
     std::optional<TakeFile> m_lastTake;

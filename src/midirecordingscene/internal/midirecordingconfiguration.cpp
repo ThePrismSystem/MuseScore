@@ -136,5 +136,5 @@ bool MidiRecordingConfiguration::playOtherStaves() const
 
 double MidiRecordingConfiguration::latencyMs() const
 {
-    return settings()->value(LATENCY_MS_KEY).toDouble();
+    return std::clamp(settings()->value(LATENCY_MS_KEY).toDouble(), -MIDIRECORDING_MAX_LATENCY_MS, MIDIRECORDING_MAX_LATENCY_MS);
 }
