@@ -40,6 +40,7 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/takefile_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takepipeline_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takesetup_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/calibration_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takerecorder_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takewriter_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/performance_tests.cpp

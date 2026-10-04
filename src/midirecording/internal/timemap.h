@@ -40,4 +40,8 @@ bool timeMapIsValid(const std::vector<TimeKnot>& knots);
 //! The tick at secs: linear between knots, extending the first or last
 //! segment beyond the ends, rounded to the nearest tick. The map must be valid.
 int timeMapSecsToTick(const std::vector<TimeKnot>& knots, double secs);
+
+//! The seconds at tick: linear between knots, extending the first or last
+//! segment beyond the ends. The map must be valid.
+double timeMapTickToSecs(const std::vector<TimeKnot>& knots, int tick);
 }

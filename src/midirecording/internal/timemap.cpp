@@ -62,3 +62,16 @@ int mu::midirecording::timeMapSecsToTick(const std::vector<TimeKnot>& knots, dou
     const double fraction = (secs - from.secs) / (to.secs - from.secs);
     return static_cast<int>(std::lround(from.tick + fraction * (to.tick - from.tick)));
 }
+
+double mu::midirecording::timeMapTickToSecs(const std::vector<TimeKnot>& knots, int tick)
+{
+    // The segment holding tick; before the first knot or past the last, the segment at that end
+    const auto after = std::upper_bound(knots.cbegin() + 1, knots.cend() - 1, tick, [](int value, const TimeKnot& knot) {
+        return value < knot.tick;
+    });
+    const TimeKnot& from = *(after - 1);
+    const TimeKnot& to = *after;
+
+    const double fraction = static_cast<double>(tick - from.tick) / static_cast<double>(to.tick - from.tick);
+    return from.secs + fraction * (to.secs - from.secs);
+}
