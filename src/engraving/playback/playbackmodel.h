@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <map>
 #include <functional>
+#include <set>
 
 #include "async/asyncable.h"
 #include "async/channel.h"
@@ -76,6 +77,10 @@ public:
     bool isMetronomeEnabled() const;
     void setIsMetronomeEnabled(const bool isEnabled);
 
+    //! Tracks whose chords and rests are left out of rendering, e.g. the staff
+    //! being recorded; takes effect on the next reload
+    void setExcludedTracks(const std::set<track_idx_t>& tracks);
+
     const InstrumentTrackId& metronomeTrackId() const;
     InstrumentTrackId chordSymbolsTrackId(const ID& partId) const;
     bool isChordSymbolsTrack(const InstrumentTrackId& trackId) const;
@@ -87,7 +92,7 @@ public:
 
     void triggerEventsForItems(const std::vector<const EngravingItem*>& items, muse::mpe::duration_t duration, bool flushSound);
     void triggerMetronome(int tick);
-    void triggerCountIn(int tick, muse::mpe::duration_t& countInDuration);
+    void triggerCountIn(int tick, int bars, muse::mpe::duration_t& countInDuration);
 
     InstrumentTrackIdSet existingTrackIdSet() const;
     muse::async::Channel<InstrumentTrackId> trackAdded() const;
@@ -166,6 +171,7 @@ private:
     bool m_playChordSymbols = true;
     bool m_useScoreDynamicsForOffstreamPlayback = true;
     bool m_metronomeEnabled = true;
+    std::set<track_idx_t> m_excludedTracks;
 
     PlaybackEventsRenderer m_renderer;
     PlaybackSetupDataResolver m_setupResolver;

@@ -40,6 +40,12 @@ public:
     virtual muse::async::Channel<std::vector<const Note*> > notesReceived() const = 0;
 
     virtual void onRealtimeAdvance() = 0;
+
+    //! While on, MIDI input only sounds the notes played: it neither starts
+    //! note input nor writes to the score. Callers end note input before turning
+    //! it on. Turning it on stops realtime input and turns off a metronome
+    //! realtime input had turned on.
+    virtual void setPreviewOnly(bool previewOnly) = 0;
 };
 
 using INotationMidiInputPtr = std::shared_ptr<INotationMidiInput>;

@@ -263,10 +263,15 @@ void PlaybackEventsRenderer::renderMetronome(const Score* score, const int tick,
     result[actualTimestamp].emplace_back(std::move(event));
 }
 
-void PlaybackEventsRenderer::renderCountIn(const Score* score, const int startTick, const muse::mpe::timestamp_t actualTimestamp,
+void PlaybackEventsRenderer::renderCountIn(const Score* score, const int startTick, const int bars,
+                                           const muse::mpe::timestamp_t actualTimestamp,
                                            const muse::mpe::ArticulationsProfilePtr profile,
                                            muse::mpe::PlaybackEventsMap& result, muse::mpe::duration_t& countInDuration) const
 {
+    if (bars < 1) {
+        return;
+    }
+
     const Measure* measure = score->tick2measure(Fraction::fromTicks(startTick));
     if (!measure) {
         return;
@@ -283,7 +288,7 @@ void PlaybackEventsRenderer::renderCountIn(const Score* score, const int startTi
     duration_t stepDuration = durationFromTempoAndTicks(bps.val, step);
 
     // Add extra clicks if...
-    int endTick = ticksPerMeasure + (startTick - measureStartTick); // ... not starting playback at beginning of measure
+    int endTick = ticksPerMeasure * bars + (startTick - measureStartTick); // ... not starting playback at beginning of measure
     int remainingTicks = 0;
 
     if (measure->isAnacrusis()) { // ... measure is incomplete (anacrusis)

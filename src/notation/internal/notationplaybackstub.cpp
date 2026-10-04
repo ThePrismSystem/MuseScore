@@ -83,7 +83,7 @@ void NotationPlaybackStub::triggerMetronome(muse::midi::tick_t)
 {
 }
 
-void NotationPlaybackStub::triggerCountIn(muse::midi::tick_t, muse::secs_t&)
+void NotationPlaybackStub::triggerCountIn(muse::midi::tick_t, int, muse::secs_t&)
 {
 }
 
@@ -187,6 +187,10 @@ double NotationPlaybackStub::tempoMultiplier() const
 }
 
 void NotationPlaybackStub::setTempoMultiplier(double)
+{
+}
+
+void NotationPlaybackStub::setExcludedTracks(const std::set<track_idx_t>&)
 {
 }
 

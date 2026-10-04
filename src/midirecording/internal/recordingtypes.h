@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -29,6 +30,9 @@ namespace mu::midirecording {
 //! Mirrors mu::engraving::Constants::DIVISION
 constexpr int TICKS_PER_QUARTER = 480;
 constexpr int TICKS_PER_WHOLE = 4 * TICKS_PER_QUARTER;
+
+//! Mirrors mu::engraving::VOICES
+constexpr size_t VOICES_PER_STAFF = 4;
 
 //! A note-on or note-off as captured, in nanoseconds from the take's time origin
 struct RawEvent {
@@ -42,6 +46,12 @@ struct RawEvent {
 struct ClockSample {
     int64_t hostNs = 0;
     double playbackSecs = 0.0;
+};
+
+//! A point on a take's tempo map: playback seconds at a score tick
+struct TimeKnot {
+    double secs = 0.0;
+    int tick = 0;
 };
 
 //! A paired note in score ticks, keeping real time for the thresholds that are physical

@@ -109,6 +109,7 @@ option(MUE_BUILD_INSTRUMENTSSCENE_QML "Build instruments scene QML" ${MUE_BUILD_
 
 option(MUE_BUILD_MIDIRECORDING_MODULE "Build MIDI recording module" ON)
 option(MUE_BUILD_MIDIRECORDING_TESTS "Build MIDI recording tests" ${MUE_BUILD_MIDIRECORDING_MODULE})
+option(MUE_BUILD_MIDIRECORDINGSCENE_MODULE "Build MIDI recording scene module" ON)
 
 option(MUE_BUILD_MUSESOUNDS_MODULE "Build MuseSounds module" ON)
 option(MUE_BUILD_MUSESOUNDS_QML "Build musesounds QML" ${MUE_BUILD_MUSESOUNDS_MODULE})

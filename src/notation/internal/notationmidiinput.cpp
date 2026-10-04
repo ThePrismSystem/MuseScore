@@ -109,7 +109,7 @@ muse::async::Channel<std::vector<const Note*> > NotationMidiInput::notesReceived
 
 void NotationMidiInput::onRealtimeAdvance()
 {
-    if (!isNoteInputMode()) {
+    if (m_previewOnly || !isNoteInputMode()) {
         return;
     }
 
@@ -126,6 +126,17 @@ void NotationMidiInput::onRealtimeAdvance()
             enableMetronome();
             runRealtime();
         }
+    }
+}
+
+void NotationMidiInput::setPreviewOnly(bool previewOnly)
+{
+    m_previewOnly = previewOnly;
+
+    if (previewOnly) {
+        m_realtimeTimer.stop();
+        m_extendNoteTimer.stop();
+        disableMetronome();
     }
 }
 
@@ -158,8 +169,10 @@ void NotationMidiInput::doProcessEvents()
     std::vector<int> notesOff;
     ControllerEventMap controllers;
 
-    startNoteInputIfNeed();
-    bool isNoteInput = isNoteInputMode();
+    if (!m_previewOnly) {
+        startNoteInputIfNeed();
+    }
+    bool isNoteInput = !m_previewOnly && isNoteInputMode();
     bool isSoundPreview = !isNoteInput;
 
     if (isNoteInput && isInputByDuration()) {
@@ -189,7 +202,7 @@ void NotationMidiInput::doProcessEvents()
 
         const bool chord = i != 0;
         const bool noteOn = opcode == muse::midi::Event::Opcode::NoteOn;
-        if (!chord && noteOn && !m_realtimeTimer.isActive() && isRealtimeAuto()) {
+        if (!m_previewOnly && !chord && noteOn && !m_realtimeTimer.isActive() && isRealtimeAuto()) {
             m_extendNoteTimer.start(configuration()->delayBetweenNotesInRealTimeModeMilliseconds());
             enableMetronome();
             doRealtimeAdvance();

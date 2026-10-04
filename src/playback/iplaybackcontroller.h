@@ -95,6 +95,11 @@ public:
     virtual void seekElement(const notation::EngravingItem* element, bool flushSound = true) = 0;
     virtual void seekBeat(int measureIndex, int beatIndex, bool flushSound = true) = 0;
 
+    //! Plays from rawTick after a count-in of countInBars bars, whatever the
+    //! count-in setting says; 0 bars starts at once. Call it while playback is
+    //! stopped or paused; it does not apply the playback loop
+    virtual void playFromTick(muse::midi::tick_t rawTick, int countInBars) = 0;
+
     virtual bool actionChecked(const muse::actions::ActionCode& actionCode) const = 0;
     virtual muse::async::Channel<muse::actions::ActionCode> actionCheckedChanged() const = 0;
 

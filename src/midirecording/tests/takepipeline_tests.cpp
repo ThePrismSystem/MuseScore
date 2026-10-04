@@ -23,7 +23,9 @@
 
 #include <cmath>
 
+#include "midirecording/internal/notatedtext.h"
 #include "midirecording/internal/takepipeline.h"
+#include "midirecording/internal/timemap.h"
 
 using namespace mu::midirecording;
 using namespace muse;
@@ -180,4 +182,71 @@ TEST_F(MidiRecording_TakePipelineTests, TakeWithOnlyCountInClockIsAnError)
     take.stopNs = takePipelineTestNs(2.0);
 
     EXPECT_FALSE(quantizeTake(take, takePipelineTestMeasures(), takePipelineTestSecsToTick).ret);
+}
+
+//! Eight quarters played on the beat after a two-second count-in, across a
+//! change from 120 to 60 bpm at the barline, each held for nine tenths of its
+//! beat, with the measures and time map a live take stores
+static TakeFile takePipelineTestStoredTake()
+{
+    TakeFile take;
+    for (int i = 0; i < 200; ++i) {
+        take.clock.push_back({ takePipelineTestNs(i * 0.01), 0.0 });
+    }
+    for (int i = 0; i <= 600; ++i) {
+        const double t = 2.0 + i * 0.01;
+        take.clock.push_back({ takePipelineTestNs(t), t - 2.0 });
+    }
+
+    const double beats[] = { 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0 };
+    const double beatLengths[] = { 0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0 };
+    for (int i = 0; i < 8; ++i) {
+        const double heard = 2.0 + beats[i];
+        take.events.push_back({ takePipelineTestNs(heard), true, 60 + i, 90 });
+        take.events.push_back({ takePipelineTestNs(heard + 0.9 * beatLengths[i]), false, 60 + i, 0 });
+    }
+    take.stopNs = takePipelineTestNs(8.0);
+
+    take.measures = takePipelineTestMeasures();
+    take.timeMap = buildTimeMap(0, 3840, 120, [](int tick) {
+        return tick <= 1920 ? tick / 960.0 : 2.0 + (tick - 1920) / 480.0;
+    });
+    return take;
+}
+
+TEST_F(MidiRecording_TakePipelineTests, StoredTakeFollowsATempoChange)
+{
+    const RetVal<QuantizeResult> result = quantizeTake(takePipelineTestStoredTake());
+
+    ASSERT_TRUE(result.ret) << result.ret.text();
+    ASSERT_EQ(result.val.events.size(), 8u);
+    for (int i = 0; i < 8; ++i) {
+        EXPECT_EQ(result.val.events[i].startTick, 480 * i);
+        EXPECT_EQ(result.val.events[i].ticks, 480);
+        EXPECT_EQ(result.val.events[i].pitches, std::vector<int>({ 60 + i }));
+    }
+    EXPECT_EQ(result.val.takeEndTick, 3840);
+}
+
+TEST_F(MidiRecording_TakePipelineTests, JsonRoundTripReplaysTheSame)
+{
+    const TakeFile take = takePipelineTestStoredTake();
+    const RetVal<TakeFile> loaded = takeFromJson(takeToJson(take));
+    ASSERT_TRUE(loaded.ret) << loaded.ret.text();
+
+    const RetVal<QuantizeResult> live = quantizeTake(take);
+    const RetVal<QuantizeResult> replayed = quantizeTake(loaded.val);
+
+    ASSERT_TRUE(live.ret) << live.ret.text();
+    ASSERT_TRUE(replayed.ret) << replayed.ret.text();
+    ASSERT_FALSE(live.val.events.empty());
+    EXPECT_EQ(notatedEventsText(replayed.val), notatedEventsText(live.val));
+}
+
+TEST_F(MidiRecording_TakePipelineTests, InvalidTimeMapIsAnError)
+{
+    TakeFile take = takePipelineTestStoredTake();
+    take.timeMap.resize(1);
+
+    EXPECT_FALSE(quantizeTake(take).ret);
 }

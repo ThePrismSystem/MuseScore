@@ -223,6 +223,11 @@ void PlaybackModel::setIsMetronomeEnabled(const bool isEnabled)
     reloadMetronomeEvents();
 }
 
+void PlaybackModel::setExcludedTracks(const std::set<track_idx_t>& tracks)
+{
+    m_excludedTracks = tracks;
+}
+
 const InstrumentTrackId& PlaybackModel::metronomeTrackId() const
 {
     return METRONOME_TRACK_ID;
@@ -360,7 +365,7 @@ void PlaybackModel::triggerMetronome(int tick)
     trackPlaybackData->second.offStream.send(result, {}, true /*flushOffstream*/);
 }
 
-void PlaybackModel::triggerCountIn(int tick, muse::mpe::duration_t& countInDuration)
+void PlaybackModel::triggerCountIn(int tick, int bars, muse::mpe::duration_t& countInDuration)
 {
     auto trackPlaybackData = m_playbackDataMap.find(METRONOME_TRACK_ID);
     if (trackPlaybackData == m_playbackDataMap.cend()) {
@@ -370,7 +375,7 @@ void PlaybackModel::triggerCountIn(int tick, muse::mpe::duration_t& countInDurat
     const ArticulationsProfilePtr profile = defaultActiculationProfile(METRONOME_TRACK_ID);
 
     PlaybackEventsMap result;
-    m_renderer.renderCountIn(m_score, tick, 0, profile, result, countInDuration);
+    m_renderer.renderCountIn(m_score, tick, bars, 0, profile, result, countInDuration);
     trackPlaybackData->second.offStream.send(result, {}, true /*flushOffstream*/);
 }
 
@@ -501,6 +506,10 @@ void PlaybackModel::processSegment(const int tickPositionOffset, const Segment* 
             continue;
         }
 
+        if (m_excludedTracks.find(item->track()) != m_excludedTracks.cend()) {
+            continue;
+        }
+
         InstrumentTrackId trackId = chordSymbolsTrackId(item->part()->id());
 
         ArticulationsProfilePtr profile = defaultActiculationProfile(trackId);
@@ -529,6 +538,10 @@ void PlaybackModel::processSegment(const int tickPositionOffset, const Segment* 
 
         staff_idx_t staffIdx = item->staffIdx();
         if (staffIdxSet.find(staffIdx) == staffIdxSet.cend()) {
+            continue;
+        }
+
+        if (m_excludedTracks.find(item->track()) != m_excludedTracks.cend()) {
             continue;
         }
 

@@ -84,6 +84,10 @@ if (MUE_BUILD_MIDIRECORDING_MODULE)
     add_subdirectory(midirecording)
 endif()
 
+if (MUE_BUILD_MIDIRECORDINGSCENE_MODULE)
+    add_subdirectory(midirecordingscene)
+endif()
+
 if (MUE_BUILD_PREFERENCES_MODULE)
     add_subdirectory(preferences)
 endif()

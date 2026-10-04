@@ -4,6 +4,12 @@ target_sources(midirecording PRIVATE
     internal/recordingtypes.h
     internal/clockmap.cpp
     internal/clockmap.h
+    internal/rawevents.cpp
+    internal/rawevents.h
+    internal/timemap.cpp
+    internal/timemap.h
+    internal/notatedtext.cpp
+    internal/notatedtext.h
     internal/notepairing.cpp
     internal/notepairing.h
     internal/prepare.cpp
@@ -20,6 +26,10 @@ target_sources(midirecording PRIVATE
     internal/takefile.h
     internal/takepipeline.cpp
     internal/takepipeline.h
+    internal/takesetup.cpp
+    internal/takesetup.h
+    internal/takerecorder.cpp
+    internal/takerecorder.h
 )
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)

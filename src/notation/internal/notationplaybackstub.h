@@ -45,7 +45,7 @@ public:
 
     void triggerEventsForItems(const std::vector<const EngravingItem*>& items, muse::mpe::duration_t duration, bool flushSound) override;
     void triggerMetronome(muse::midi::tick_t tick) override;
-    void triggerCountIn(muse::midi::tick_t tick, muse::secs_t& countInDuration) override;
+    void triggerCountIn(muse::midi::tick_t tick, int bars, muse::secs_t& countInDuration) override;
     void triggerControllers(const muse::mpe::ControllerChangeEventList& list, notation::staff_idx_t staffIdx, int tick) override;
 
     engraving::InstrumentTrackIdSet existingTrackIdSet() const override;
@@ -74,6 +74,7 @@ public:
 
     double tempoMultiplier() const override;
     void setTempoMultiplier(double multiplier) override;
+    void setExcludedTracks(const std::set<track_idx_t>& tracks) override;
 
     void addSoundFlags(const std::vector<mu::engraving::StaffText*>& staffTextList) override;
     void removeSoundFlags(const engraving::InstrumentTrackIdSet& trackIdSet) override;
