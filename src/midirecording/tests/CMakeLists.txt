@@ -21,6 +21,12 @@
 set(MODULE_TEST midirecording_tests)
 
 set(MODULE_TEST_SRC
+    ${PROJECT_SOURCE_DIR}/src/engraving/tests/utils/scorerw.cpp
+    ${PROJECT_SOURCE_DIR}/src/engraving/tests/utils/scorerw.h
+    ${PROJECT_SOURCE_DIR}/src/engraving/tests/utils/scorecomp.cpp
+    ${PROJECT_SOURCE_DIR}/src/engraving/tests/utils/scorecomp.h
+
+    ${CMAKE_CURRENT_LIST_DIR}/environment.cpp
     ${CMAKE_CURRENT_LIST_DIR}/clockmap_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rawevents_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/timemap_tests.cpp
@@ -35,11 +41,15 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/takepipeline_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takesetup_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/takerecorder_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/takewriter_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/performance_tests.cpp
 )
 
 set(MODULE_TEST_LINK
+    engraving
     midirecording
 )
+
+set(MODULE_TEST_DATA_ROOT ${CMAKE_CURRENT_LIST_DIR}/data)
 
 include(SetupGTest)

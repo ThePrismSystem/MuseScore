@@ -30,7 +30,11 @@ target_sources(midirecording PRIVATE
     internal/takesetup.h
     internal/takerecorder.cpp
     internal/takerecorder.h
+    internal/takewriter.cpp
+    internal/takewriter.h
 )
+
+target_link_libraries(midirecording PRIVATE engraving)
 
 if (MUE_BUILD_MIDIRECORDING_TESTS)
     add_subdirectory(tests)
