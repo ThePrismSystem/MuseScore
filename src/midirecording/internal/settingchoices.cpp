@@ -150,11 +150,11 @@ static std::vector<SettingMenu> settingChoicesMenus()
     }));
 
     menus.push_back(settingChoicesMenu("overlaps", TranslatableString("action", "Overlapping notes"), false, {
-        settingChoicesChoice("midi-recording-overlaps-tied", TranslatableString("action", "Tie"),
+        settingChoicesChoice("midi-recording-overlaps-tied", TranslatableString("action", "Tie", "MIDI recording: overlapping notes"),
                              TranslatableString("action", "MIDI recording: tie overlapping notes"),
                              [](const RecordingSettings& settings) { return settings.quantize.overlaps == OverlapMode::Tied; },
                              [](RecordingSettings& settings) { settings.quantize.overlaps = OverlapMode::Tied; }),
-        settingChoicesChoice("midi-recording-overlaps-cut", TranslatableString("action", "Cut"),
+        settingChoicesChoice("midi-recording-overlaps-cut", TranslatableString("action", "Cut", "MIDI recording: overlapping notes"),
                              TranslatableString("action", "MIDI recording: cut overlapping notes"),
                              [](const RecordingSettings& settings) { return settings.quantize.overlaps == OverlapMode::Cut; },
                              [](RecordingSettings& settings) { settings.quantize.overlaps = OverlapMode::Cut; }),
