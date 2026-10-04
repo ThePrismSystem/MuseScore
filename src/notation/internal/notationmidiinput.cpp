@@ -132,6 +132,12 @@ void NotationMidiInput::onRealtimeAdvance()
 void NotationMidiInput::setPreviewOnly(bool previewOnly)
 {
     m_previewOnly = previewOnly;
+
+    if (previewOnly) {
+        m_realtimeTimer.stop();
+        m_extendNoteTimer.stop();
+        disableMetronome();
+    }
 }
 
 mu::engraving::Score* NotationMidiInput::score() const

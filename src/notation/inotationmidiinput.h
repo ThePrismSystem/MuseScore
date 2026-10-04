@@ -43,7 +43,8 @@ public:
 
     //! While on, MIDI input only sounds the notes played: it neither starts
     //! note input nor writes to the score. Callers end note input before turning
-    //! it on: realtime input already running stops by itself once note input ends.
+    //! it on. Turning it on stops realtime input and turns off a metronome
+    //! realtime input had turned on.
     virtual void setPreviewOnly(bool previewOnly) = 0;
 };
 
