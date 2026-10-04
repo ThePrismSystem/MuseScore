@@ -449,6 +449,56 @@ TEST_F(MidiRecording_TakeWriterTests, ReplacingAVoiceKeepsTheOthers)
     delete score;
 }
 
+TEST_F(MidiRecording_TakeWriterTests, ReplacingAVoiceCreatesItWhereItIsMissing)
+{
+    // Measure 2 of the fixture has no voice 2
+    const QuantizeResult take = takeWriterTestTake(1920, 3840, {
+        takeWriterTestEvent(1920, 960, { 55 }),
+        takeWriterTestEvent(2880, 960, {}),
+    });
+
+    TakeTarget voice2;
+    voice2.voice = 1;
+    voice2.replaceVoice = true;
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, voice2, ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:half[72/14] C:half[74/16]\n"
+              "m1 v2: C:quarter[60/14] C:quarter[62/16] R:half\n"
+              "m2 v1: R:measure\n"
+              "m2 v2: C:half[55/15] R:half\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ReplacingAVoiceStartsATupletWhereItIsMissing)
+{
+    const TupletInfo eighths { 1920, 480, 3, 2, 160 };
+    const QuantizeResult take = takeWriterTestTake(1920, 3840, {
+        takeWriterTestEvent(1920, 160, { 67 }, {}, eighths),
+        takeWriterTestEvent(2080, 160, { 69 }, {}, eighths),
+        takeWriterTestEvent(2240, 160, { 71 }, {}, eighths),
+        takeWriterTestEvent(2400, 1440, {}),
+    });
+
+    TakeTarget voice2;
+    voice2.voice = 1;
+    voice2.replaceVoice = true;
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, voice2, ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:half[72/14] C:half[74/16]\n"
+              "m1 v2: C:quarter[60/14] C:quarter[62/16] R:half\n"
+              "m2 v1: R:measure\n"
+              "m2 v2: {3:2 C:eighth[67/15] C:eighth[69/17] C:eighth[71/19] } R:quarter R:half\n");
+    delete score;
+}
+
 TEST_F(MidiRecording_TakeWriterTests, TakeStartingInsideATupletIsRefused)
 {
     Ret ret;
