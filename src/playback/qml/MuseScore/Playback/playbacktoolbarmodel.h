@@ -28,6 +28,7 @@
 #include "iplaybackcontroller.h"
 #include "notation/inotationconfiguration.h"
 #include "context/iglobalcontext.h"
+#include "midirecordingscene/imidirecordingmenu.h"
 
 namespace mu::playback {
 class PlaybackToolBarModel : public muse::uicomponents::AbstractMenuModel
@@ -52,6 +53,7 @@ class PlaybackToolBarModel : public muse::uicomponents::AbstractMenuModel
     QML_ELEMENT
 
     muse::GlobalInject<notation::INotationConfiguration> notationConfiguration;
+    muse::GlobalInject<mu::midirecording::IMidiRecordingMenu> midiRecordingMenu;
     muse::ContextInject<IPlaybackController> playbackController = { this };
     muse::ContextInject<context::IGlobalContext> globalContext = { this };
 
@@ -93,6 +95,8 @@ signals:
 private:
     void setupConnections();
     muse::uicomponents::MenuItem* makeInputPitchMenu();
+    muse::uicomponents::MenuItem* makeMidiRecordingMenu();
+    muse::uicomponents::MenuItemList makeMidiRecordingItems(const std::vector<mu::midirecording::MidiRecordingMenuEntry>& entries);
 
     void updateActions();
     void onActionsStateChanges(const muse::actions::ActionCodeList& codes) override;

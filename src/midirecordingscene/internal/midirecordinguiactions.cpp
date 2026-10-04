@@ -43,6 +43,7 @@ const UiActionList MidiRecordingUiActions::s_actions = {
              TranslatableString("action", "Record MIDI"),
              TranslatableString("action", "Record MIDI from the selected note or rest"),
              IconCode::Code::RECORD_FILL,
+             QStringLiteral("#E5383B"),
              Checkable::Yes
              ),
     UiAction("midi-recording-export-take",
