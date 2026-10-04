@@ -141,7 +141,7 @@ TEST_F(MidiRecording_CalibrationTests, LatenessIsRealTimeAtAnySpeed)
 
 TEST_F(MidiRecording_CalibrationTests, BeatsCountFromEachBarline)
 {
-    // A 3/8 measure between two 4/4 ones: the 4/4 measure after it starts an eighth after a quarter-note grid from tick 0 would
+    // A 3/8 measure between two 4/4 ones: beats counted from tick 0 would put the next downbeat at 2400, not 2640
     TakeFile take = calibrationTestTake();
     take.measures = { { 0, 1920, 4, 4 }, { 1920, 720, 3, 8 }, { 2640, 1920, 4, 4 } };
     const int ticks[] = { 0, 480, 960, 1440, 1920, 2400, 2640, 3120 };
