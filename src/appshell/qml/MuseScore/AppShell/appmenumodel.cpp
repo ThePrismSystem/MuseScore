@@ -513,6 +513,7 @@ MenuItem* AppMenuModel::makeDiagnosticsMenu()
     if (uiActionsRegister()->action("record-midi").isValid()) {
         MenuItemList midiRecordingItems {
             makeMenuItem("record-midi"),
+            makeMenuItem("midi-recording-reapply-take"),
             makeMenuItem("midi-recording-export-take"),
             makeMenuItem("midi-recording-replay-take"),
         };
