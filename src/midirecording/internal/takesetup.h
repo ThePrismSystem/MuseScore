@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "recordingtypes.h"
 
@@ -35,9 +36,12 @@ namespace mu::midirecording {
 //! odd length.
 int takeStartTick(int chordRestTick, int measureStartTick, int gridTicks);
 
-//! The tracks playback leaves out while a take records: the target staff's
+//! The tracks playback leaves out while a take records, on every staff in
+//! staffIndices (the recorded staff and the staves of the same score linked
+//! to it, such as a TAB staff, which would otherwise play the take back): all
 //! four voices when replacing the span, the target voice alone when replacing
 //! one voice, and every track when the other staves are not to be heard, so
 //! that only the click sounds
-std::set<size_t> takeExcludedTracks(size_t staffIdx, int voice, const std::string& replaceMode, bool playOtherStaves, size_t staffCount);
+std::set<size_t> takeExcludedTracks(const std::vector<size_t>& staffIndices, int voice, const std::string& replaceMode,
+                                    bool playOtherStaves, size_t staffCount);
 }

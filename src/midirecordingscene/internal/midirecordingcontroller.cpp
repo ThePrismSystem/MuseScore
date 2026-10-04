@@ -31,6 +31,7 @@
 #include "engraving/dom/measure.h"
 #include "engraving/dom/mscore.h"
 #include "engraving/dom/note.h"
+#include "engraving/dom/staff.h"
 #include "io/path.h"
 #include "midi/midiclock.h"
 #include "translation.h"
@@ -87,6 +88,18 @@ static mu::engraving::ChordRest* midiRecordingControllerSelectedChordRest(const 
         return mu::engraving::toChordRest(item);
     }
     return nullptr;
+}
+
+//! The staff and the staves of the same score linked to it, such as a TAB staff
+static std::vector<size_t> midiRecordingControllerLinkedStaves(const mu::engraving::Staff* staff)
+{
+    std::vector<size_t> staves;
+    for (const mu::engraving::Staff* linked : staff->staffList()) {
+        if (linked->score() == staff->score()) {
+            staves.push_back(linked->idx());
+        }
+    }
+    return staves;
 }
 
 //! The measures from the one holding fromTick to the end of the score
@@ -304,7 +317,8 @@ void MidiRecordingController::startTake()
     m_savedTempoMultiplier = playbackController()->tempoMultiplier();
     playbackController()->setTempoMultiplier(context.recordSpeedPercent / MIDIRECORDINGCONTROLLER_PERCENT);
 
-    masterNotation->playback()->setExcludedTracks(takeExcludedTracks(chordRest->staffIdx(), context.voice, context.replaceMode,
+    masterNotation->playback()->setExcludedTracks(takeExcludedTracks(midiRecordingControllerLinkedStaves(chordRest->staff()),
+                                                                     context.voice, context.replaceMode,
                                                                      configuration()->playOtherStaves(), score->nstaves()));
 
     m_recorder.start(context);

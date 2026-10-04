@@ -29,8 +29,8 @@ int mu::midirecording::takeStartTick(int chordRestTick, int measureStartTick, in
     return measureStartTick + offset - offset % gridTicks;
 }
 
-std::set<size_t> mu::midirecording::takeExcludedTracks(size_t staffIdx, int voice, const std::string& replaceMode,
-                                                       bool playOtherStaves, size_t staffCount)
+std::set<size_t> mu::midirecording::takeExcludedTracks(const std::vector<size_t>& staffIndices, int voice,
+                                                       const std::string& replaceMode, bool playOtherStaves, size_t staffCount)
 {
     std::set<size_t> tracks;
     if (!playOtherStaves) {
@@ -40,14 +40,16 @@ std::set<size_t> mu::midirecording::takeExcludedTracks(size_t staffIdx, int voic
         return tracks;
     }
 
-    const size_t firstTrack = staffIdx * VOICES_PER_STAFF;
-    if (replaceMode == "voice") {
-        tracks.insert(firstTrack + static_cast<size_t>(voice));
-        return tracks;
-    }
+    for (const size_t staffIdx : staffIndices) {
+        const size_t firstTrack = staffIdx * VOICES_PER_STAFF;
+        if (replaceMode == "voice") {
+            tracks.insert(firstTrack + static_cast<size_t>(voice));
+            continue;
+        }
 
-    for (size_t track = firstTrack; track < firstTrack + VOICES_PER_STAFF; ++track) {
-        tracks.insert(track);
+        for (size_t track = firstTrack; track < firstTrack + VOICES_PER_STAFF; ++track) {
+            tracks.insert(track);
+        }
     }
     return tracks;
 }
