@@ -31,6 +31,7 @@ using namespace muse::actions;
 using namespace mu::midirecording;
 
 static const ActionCode MIDIRECORDINGMENU_RECORD_CODE("record-midi");
+static const ActionCode MIDIRECORDINGMENU_CALIBRATE_CODE("midi-recording-calibrate");
 static const ActionCode MIDIRECORDINGMENU_LATENCY_RESET_CODE("midi-recording-latency-reset");
 static const ActionCode MIDIRECORDINGMENU_REAPPLY_CODE("midi-recording-reapply-take");
 
@@ -95,6 +96,7 @@ std::vector<MidiRecordingMenuEntry> MidiRecordingMenu::settingsMenu() const
 
     entries.push_back(MidiRecordingMenuEntry());
     entries.push_back(midiRecordingMenuSubmenu("midi-recording-latency", midiRecordingMenuLatencyTitle(configuration()->latencyMs()), {
+        midiRecordingMenuAction(MIDIRECORDINGMENU_CALIBRATE_CODE),
         midiRecordingMenuAction(MIDIRECORDINGMENU_LATENCY_RESET_CODE),
     }));
     entries.push_back(midiRecordingMenuAction(MIDIRECORDINGMENU_REAPPLY_CODE));

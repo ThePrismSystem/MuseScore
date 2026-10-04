@@ -60,6 +60,12 @@ const UiActionList MidiRecordingUiActions::s_actions = {
              mu::context::CTX_ANY,
              TranslatableString("action", "Re-apply to last MIDI take")
              ),
+    UiAction("midi-recording-calibrate",
+             mu::context::UiCtxProjectOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Calibrate…"),
+             TranslatableString("action", "Calibrate MIDI recording latency")
+             ),
     UiAction("midi-recording-latency-reset",
              mu::context::UiCtxAny,
              mu::context::CTX_ANY,
