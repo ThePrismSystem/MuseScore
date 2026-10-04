@@ -48,6 +48,26 @@ using namespace muse;
 using namespace mu::engraving;
 
 namespace mu::midirecording {
+//! Score::findCR, but in the measures themselves: Score::findCR looks a tick
+//! up through tick2measureMM, so it answers from a multimeasure rest
+static ChordRest* takeWriterFindCR(const Score* score, const Fraction& tick, track_idx_t track)
+{
+    Measure* measure = score->tick2measure(tick);
+    if (!measure) {
+        return nullptr;
+    }
+
+    ChordRest* found = nullptr;
+    for (Segment* segment = measure->first(SegmentType::ChordRest); segment && segment->tick() <= tick;
+         segment = segment->next(SegmentType::ChordRest)) {
+        EngravingItem* item = segment->element(track);
+        if (item && !(item->isRest() && toRest(item)->isGap())) {
+            found = toChordRest(item);
+        }
+    }
+    return found;
+}
+
 static Fraction takeWriterTicks(int ticks)
 {
     return Fraction::fromTicks(ticks);
@@ -144,7 +164,7 @@ static Ret takeWriterCut(Score* score, ChordRest* across, const Fraction& tick, 
         score->setNoteRest(segment, track, previous ? notes.front() : NoteVal(), values.at(i).fraction(), DirectionV::AUTO, false, {},
                            false, &input);
         if (previous) {
-            ChordRest* written = score->findCR(pieceTick, track);
+            ChordRest* written = takeWriterFindCR(score, pieceTick, track);
             if (!written || !written->isChord() || written->tick() != pieceTick) {
                 return takeWriterError(failed);
             }
@@ -169,7 +189,7 @@ static Ret takeWriterCut(Score* score, ChordRest* across, const Fraction& tick, 
 //! A tuplet cannot be cut.
 static Ret takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction& start, InputState& input)
 {
-    ChordRest* across = score->findCR(start, track);
+    ChordRest* across = takeWriterFindCR(score, start, track);
     if (!across || across->tick() >= start || across->endTick() <= start) {
         return make_ok();
     }
@@ -184,7 +204,7 @@ static Ret takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction&
 static Ret takeWriterCutOtherVoiceRests(Score* score, track_idx_t staffTrack, const Fraction& start, InputState& input)
 {
     for (track_idx_t track = staffTrack + 1; track < staffTrack + VOICES; ++track) {
-        ChordRest* across = score->findCR(start, track);
+        ChordRest* across = takeWriterFindCR(score, start, track);
         if (across && across->isRest() && !across->tuplet() && across->tick() < start && across->endTick() > start) {
             const Ret ret = takeWriterCut(score, across, start, input);
             if (!ret) {
@@ -234,11 +254,19 @@ static void takeWriterRestoreClef(Score* score, staff_idx_t staffIdx, const Take
     const bool concertPitch = score->style().styleB(Sid::concertPitch);
     score->undoChangeClef(score->staff(staffIdx), chordRest, concertPitch ? clef.types.concertClef : clef.types.transposingClef);
 
-    // A new clef gets one type for both; a transposing instrument's pair is put back as it was
+    // A new clef gets one type for both; a transposing instrument's pair is put
+    // back as it was, on every staff and part linked to this one
     Segment* clefSegment = chordRest->segment()->prev1(SegmentType::Clef);
     EngravingItem* restored = clefSegment && clefSegment->tick() == chordRest->tick() ? clefSegment->element(staffTrack) : nullptr;
-    if (restored && restored->isClef() && !(toClef(restored)->clefTypeList() == clef.types)) {
-        score->undo(new ChangeClefType(toClef(restored), clef.types.concertClef, clef.types.transposingClef));
+    if (!restored || !restored->isClef()) {
+        return;
+    }
+
+    for (EngravingObject* linked : restored->linkList()) {
+        Clef* linkedClef = toClef(linked);
+        if (!(linkedClef->clefTypeList() == clef.types)) {
+            score->undo(new ChangeClefType(linkedClef, clef.types.concertClef, clef.types.transposingClef));
+        }
     }
 }
 
@@ -276,7 +304,7 @@ static Ret takeWriterMakeTuplet(Score* score, track_idx_t track, const TupletInf
     }
 
     score->setNoteRest(segment, track, NoteVal(), groupLength, DirectionV::AUTO, false, {}, false, &input);
-    ChordRest* rest = score->findCR(groupStart, track);
+    ChordRest* rest = takeWriterFindCR(score, groupStart, track);
     if (!rest || !rest->isRest() || rest->tick() != groupStart || rest->ticks() != groupLength) {
         return takeWriterError("no rest to hold the tuplet at tick " + std::to_string(info.groupStartTick));
     }
@@ -373,7 +401,7 @@ static Ret takeWriterWrite(Score* score, const QuantizeResult& result, const Tak
 
         score->setNoteRest(segment, track, takeWriterNoteVal(score, target.staffIdx, event.pitches.front(), tick, target.useWrittenPitch),
                            length, DirectionV::AUTO, false, {}, rhythmic, &input);
-        ChordRest* written = score->findCR(tick, track);
+        ChordRest* written = takeWriterFindCR(score, tick, track);
         if (!written || !written->isChord() || written->tick() != tick) {
             return takeWriterError("the chord at tick " + std::to_string(event.startTick) + " was not written");
         }
@@ -427,7 +455,7 @@ int takeStartTickInScore(const Score* score, track_idx_t track, int fromTick, in
     for (;;) {
         const Measure* measure = score->tick2measure(takeWriterTicks(tick));
         const int start = measure ? takeStartTick(tick, measure->tick().ticks(), gridTicks) : tick;
-        const ChordRest* across = score->findCR(takeWriterTicks(start), track);
+        const ChordRest* across = takeWriterFindCR(score, takeWriterTicks(start), track);
         const Tuplet* tuplet = across && across->endTick().ticks() > start ? across->topTuplet() : nullptr;
         if (!tuplet || tuplet->tick().ticks() >= start) {
             return start;

@@ -112,12 +112,6 @@ static TakeTarget midiRecordingControllerTarget(const TakeFile& take, bool useWr
     return target;
 }
 
-//! Score::findCR answers from a multimeasure rest while they are shown, so a take is not written then
-static bool midiRecordingControllerShowsMultiMeasureRests(const mu::engraving::Score* score)
-{
-    return score->style().styleB(mu::engraving::Sid::createMultiMeasureRests);
-}
-
 //! Selects what the take wrote, from its first chord or rest to its last
 static void midiRecordingControllerSelectWritten(const INotationPtr& notation, const mu::engraving::Score* score,
                                                  const QuantizeResult& result, const TakeTarget& target)
@@ -240,10 +234,6 @@ void MidiRecordingController::startTake()
     }
 
     const mu::engraving::Score* score = masterNotation->masterScore();
-    if (midiRecordingControllerShowsMultiMeasureRests(score)) {
-        refuse(muse::trc("midirecording", "Turn off multimeasure rests to record."));
-        return;
-    }
 
     mu::engraving::ChordRest* chordRest = midiRecordingControllerSelectedChordRest(notation, score);
     if (!chordRest) {
@@ -555,14 +545,6 @@ void MidiRecordingController::writeTakeIntoScore(const IMasterNotationPtr& maste
     const INotationUndoStackPtr undoStack = notation->undoStack();
     const TakeTarget target = midiRecordingControllerTarget(take, notationConfiguration()->midiUseWrittenPitch().val);
 
-    // Multimeasure rests may have been turned on during the take
-    if (midiRecordingControllerShowsMultiMeasureRests(masterNotation->masterScore())) {
-        m_writtenTake.reset();
-        interactive()->warning(muse::trc("midirecording", "The take could not be written"),
-                               muse::trc("midirecording", "Turn off multimeasure rests to record."));
-        return;
-    }
-
     undoStack->prepareChanges(MIDIRECORDINGCONTROLLER_UNDO_NAME);
     const Ret ret = writeTake(masterNotation->masterScore(), result, target);
     if (!ret) {
@@ -602,10 +584,6 @@ void MidiRecordingController::reapplyTake()
         return;
     }
     const mu::engraving::Score* score = masterNotation->masterScore();
-    if (midiRecordingControllerShowsMultiMeasureRests(score)) {
-        refuse(muse::trc("midirecording", "Turn off multimeasure rests to record."));
-        return;
-    }
 
     TakeFile take = m_writtenTake->take;
     const int fromTick = m_writtenTake->fromTick;

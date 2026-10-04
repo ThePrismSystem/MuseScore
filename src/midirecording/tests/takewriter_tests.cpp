@@ -29,6 +29,8 @@
 #include "engraving/dom/chord.h"
 #include "engraving/dom/clef.h"
 #include "engraving/dom/engravingitem.h"
+#include "engraving/dom/excerpt.h"
+#include "engraving/dom/factory.h"
 #include "engraving/dom/masterscore.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/note.h"
@@ -36,6 +38,8 @@
 #include "engraving/dom/segment.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/tuplet.h"
+#include "engraving/editing/editclef.h"
+#include "engraving/style/styledef.h"
 #include "engraving/types/typesconv.h"
 
 #include "engraving/tests/utils/scorecomp.h"
@@ -670,5 +674,76 @@ TEST_F(MidiRecording_TakeWriterTests, ConcertPitchTakesThePlayedKeyAsSounding)
     EXPECT_EQ(takeWriterTestText(score, 0),
               "m1 v1: C:whole[84/14]\n"
               "m2 v1: C:whole[72/14]\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, WritesWhileMultiMeasureRestsAreShown)
+{
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"blank-g.mscx");
+    ASSERT_TRUE(score);
+    score->style().set(Sid::createMultiMeasureRests, true);
+    score->setLayoutAll();
+    score->doLayout();
+    // Score::findCR answers from this multimeasure rest, which holds the take's start
+    ASSERT_TRUE(score->firstMeasure()->mmRest());
+    ASSERT_TRUE(ScoreRW::saveScore(score, u"takewriter-mmrest-before.mscx"));
+
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    const Ret ret = writeTake(score, takeWriterTestStraightTake(), TakeTarget());
+    score->endCmd(!ret);
+    ASSERT_TRUE(ret) << ret.text();
+
+    // What WritesNotesRestsChordsAndTies writes with no multimeasure rests
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: R:eighth C:eighth[66/20~] C:16th[~66/20] C:16th[67/15] R:eighth C:half[60/14~ 64/18~]\n"
+              "m2 v1: C:quarter[~60/14 ~64/18~] C:quarter[~64/18] R:half\n"
+              "m3 v1: R:measure\n");
+
+    score->undoRedo(true, nullptr);
+    ASSERT_TRUE(ScoreRW::saveScore(score, u"takewriter-mmrest-after.mscx"));
+    EXPECT_TRUE(ScoreComp::compareFiles(u"takewriter-mmrest-before.mscx", u"takewriter-mmrest-after.mscx"));
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, RestoredClefKeepsItsPairOnLinkedStaves)
+{
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"two-voices.mscx");
+    ASSERT_TRUE(score);
+
+    // A staff linked to staff 0, as a TAB staff or the same staff in a part is
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    Staff* staff = score->staff(0);
+    Staff* linked = Factory::createStaff(staff->part());
+    linked->setPart(staff->part());
+    score->undoInsertStaff(linked, 1, false);
+    Excerpt::cloneStaff(staff, linked);
+    score->endCmd();
+    const staff_idx_t linkedIdx = linked->idx();
+    ASSERT_EQ(linkedIdx, 1u);
+
+    // A bass clef from the D5 at tick 960 on, carrying a pair as a transposing
+    // instrument's clef does: F 8va sounding, F written
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    score->undoChangeClef(staff, score->findCR(Fraction::fromTicks(960), 0), ClefType::F);
+    Segment* clefSegment = score->findCR(Fraction::fromTicks(960), 0)->segment()->prev1(SegmentType::Clef);
+    ASSERT_TRUE(clefSegment && clefSegment->element(0) && clefSegment->element(0)->isClef());
+    for (EngravingObject* clef : clefSegment->element(0)->linkList()) {
+        score->undo(new ChangeClefType(toClef(clef), ClefType::F_8VA, ClefType::F));
+    }
+    score->endCmd();
+    const ClefTypeList pair(ClefType::F_8VA, ClefType::F);
+    ASSERT_TRUE(score->staff(0)->clefType(Fraction::fromTicks(960)) == pair);
+    ASSERT_TRUE(score->staff(linkedIdx)->clefType(Fraction::fromTicks(960)) == pair);
+
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    const Ret ret = writeTake(score, takeWriterTestTake(0, 1920, {
+        takeWriterTestEvent(0, 960, { 60 }),
+        takeWriterTestEvent(960, 960, { 50 }),
+    }), TakeTarget());
+    score->endCmd(!ret);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_TRUE(score->staff(0)->clefType(Fraction::fromTicks(960)) == pair);
+    EXPECT_TRUE(score->staff(linkedIdx)->clefType(Fraction::fromTicks(960)) == pair);
     delete score;
 }
