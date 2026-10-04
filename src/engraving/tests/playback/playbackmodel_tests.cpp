@@ -1493,3 +1493,48 @@ TEST_F(Engraving_PlaybackModelTests, ExcludedTracks)
 
     delete score;
 }
+
+/**
+ * @brief PlaybackModelTests_ExcludedTracks_ChordSymbols
+ * @details Chord symbols belong to the staff they are written on, so excluding that staff's tracks silences them too
+ */
+TEST_F(Engraving_PlaybackModelTests, ExcludedTracks_ChordSymbols)
+{
+    // [GIVEN] A piano with chord symbols on its only staff
+    Score* score = ScoreRW::readScore(u"chordsymbol_data/realize-jazz.mscx");
+    ASSERT_TRUE(score);
+    ASSERT_EQ(score->parts().size(), 1);
+
+    const Part* piano = score->parts().at(0);
+    ASSERT_EQ(piano->nstaves(), 1);
+
+    EXPECT_CALL(*m_repositoryMock, defaultProfile(_)).WillRepeatedly(Return(m_defaultProfile));
+
+    PlaybackModel model(modularity::globalCtx());
+    model.profilesRepository.set(m_repositoryMock);
+    model.load(score);
+
+    auto chordSymbolEvents = [&model, piano]() {
+        return model.resolveTrackPlaybackData(model.chordSymbolsTrackId(piano->id())).originEvents.size();
+    };
+
+    // [THEN] The chord symbols sound
+    const size_t expected = chordSymbolEvents();
+    ASSERT_GT(expected, 0u);
+
+    // [WHEN] The staff is excluded
+    model.setExcludedTracks({ 0, 1, 2, 3 });
+    model.reload();
+
+    // [THEN] The chord symbols are silent
+    EXPECT_EQ(chordSymbolEvents(), 0u);
+
+    // [WHEN] Nothing is excluded
+    model.setExcludedTracks({});
+    model.reload();
+
+    // [THEN] The chord symbols sound again
+    EXPECT_EQ(chordSymbolEvents(), expected);
+
+    delete score;
+}

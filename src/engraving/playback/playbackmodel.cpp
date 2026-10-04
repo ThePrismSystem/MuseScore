@@ -506,6 +506,10 @@ void PlaybackModel::processSegment(const int tickPositionOffset, const Segment* 
             continue;
         }
 
+        if (m_excludedTracks.find(item->track()) != m_excludedTracks.cend()) {
+            continue;
+        }
+
         InstrumentTrackId trackId = chordSymbolsTrackId(item->part()->id());
 
         ArticulationsProfilePtr profile = defaultActiculationProfile(trackId);

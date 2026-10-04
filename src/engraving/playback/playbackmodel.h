@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <map>
 #include <functional>
+#include <set>
 
 #include "async/asyncable.h"
 #include "async/channel.h"
