@@ -555,6 +555,14 @@ void MidiRecordingController::writeTakeIntoScore(const IMasterNotationPtr& maste
     const INotationUndoStackPtr undoStack = notation->undoStack();
     const TakeTarget target = midiRecordingControllerTarget(take, notationConfiguration()->midiUseWrittenPitch().val);
 
+    // Multimeasure rests may have been turned on during the take
+    if (midiRecordingControllerShowsMultiMeasureRests(masterNotation->masterScore())) {
+        m_writtenTake.reset();
+        interactive()->warning(muse::trc("midirecording", "The take could not be written"),
+                               muse::trc("midirecording", "Turn off multimeasure rests to record."));
+        return;
+    }
+
     undoStack->prepareChanges(MIDIRECORDINGCONTROLLER_UNDO_NAME);
     const Ret ret = writeTake(masterNotation->masterScore(), result, target);
     if (!ret) {
@@ -579,6 +587,10 @@ void MidiRecordingController::reapplyTake()
 
     const IMasterNotationPtr masterNotation = globalContext()->currentMasterNotation();
     const INotationPtr notation = globalContext()->currentNotation();
+    if (m_writtenTake && masterNotation == m_writtenTake->masterNotation && notation != masterNotation->notation()) {
+        interactive()->info(muse::trc("midirecording", "Re-apply works in the full score"), std::string());
+        return;
+    }
     const bool lastChange = m_writtenTake && masterNotation == m_writtenTake->masterNotation && notation == masterNotation->notation()
                             && notation->undoStack()->currentStateIndex() == m_writtenTake->undoStateIndex
                             && notation->undoStack()->topMostUndoActionName() == MIDIRECORDINGCONTROLLER_UNDO_NAME;
@@ -601,8 +613,18 @@ void MidiRecordingController::reapplyTake()
     take.replaceMode = configuration()->replaceMode();
     take.latencyMs = configuration()->latencyMs();
 
+    const INotationNoteInputPtr noteInput = notation->interaction()->noteInput();
+    if (noteInput->isNoteInputMode()) {
+        noteInput->endNoteInput();
+    }
+
     // The start is worked out again on the score as it was before the take, with the grid as it is now
     notation->interaction()->undo();
+    if (notation->undoStack()->currentStateIndex() >= m_writtenTake->undoStateIndex) {
+        interactive()->warning(muse::trc("midirecording", "The take could not be re-applied"),
+                               muse::trc("midirecording", "Finish the current edit and try again."));
+        return;
+    }
     take.startTick = takeStartTickInScore(score, midiRecordingControllerTarget(take, false).track(), fromTick, take.settings.gridTicks);
 
     const RetVal<QuantizeResult> result = quantizeTake(take);
