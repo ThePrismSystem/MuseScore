@@ -38,8 +38,10 @@ std::vector<MeasureSpan> mu::midirecording::extendMeasures(const std::vector<Mea
     }
 
     while (result.back().ticks > 0 && result.back().startTick + result.back().ticks < toTick) {
+        // Whole measures of the last time signature, as Score::appendMeasures adds them, even after a short final measure
         MeasureSpan next = result.back();
         next.startTick += next.ticks;
+        next.ticks = next.sigN * TICKS_PER_WHOLE / next.sigD;
         result.push_back(next);
     }
 

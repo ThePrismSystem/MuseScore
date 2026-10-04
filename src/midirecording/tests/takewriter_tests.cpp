@@ -747,3 +747,26 @@ TEST_F(MidiRecording_TakeWriterTests, RestoredClefKeepsItsPairOnLinkedStaves)
     EXPECT_TRUE(score->staff(linkedIdx)->clefType(Fraction::fromTicks(960)) == pair);
     delete score;
 }
+
+TEST_F(MidiRecording_TakeWriterTests, TakePastAShortFinalMeasureAppendsWholeMeasures)
+{
+    // The take as the quantizer now ends it: a whole 4/4 measure after the 3/4 one
+    const QuantizeResult take = takeWriterTestTake(0, 5280, {
+        takeWriterTestEvent(0, 1920, { 60 }),
+        takeWriterTestEvent(1920, 1440, {}),
+        takeWriterTestEvent(3360, 1920, { 62 }),
+    });
+
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"short-end.mscx", take, TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    ASSERT_EQ(score->nmeasures(), 3);
+    EXPECT_EQ(score->lastMeasure()->ticks(), Fraction(4, 4));
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:whole[60/14]\n"
+              "m2 v1: R:measure\n"
+              "m3 v1: C:whole[62/16]\n");
+    delete score;
+}
