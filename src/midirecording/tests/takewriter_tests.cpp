@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "engraving/dom/chord.h"
+#include "engraving/dom/clef.h"
 #include "engraving/dom/engravingitem.h"
 #include "engraving/dom/masterscore.h"
 #include "engraving/dom/measure.h"
@@ -538,5 +539,136 @@ TEST_F(MidiRecording_TakeWriterTests, TakeStartInsideANoteStaysForTheWriterToCut
 
     EXPECT_EQ(takeStartTickInScore(score, 0, 600, 120), 600);   // inside the voice-1 half note, 0 to 960
     EXPECT_EQ(takeStartTickInScore(score, 0, 650, 120), 600);   // moved back to the 16th grid line
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ReplacingTheSpanKeepsClefChanges)
+{
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"two-voices.mscx");
+    ASSERT_TRUE(score);
+
+    // A bass clef from the D5 at tick 960 on
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    score->undoChangeClef(score->staff(0), score->findCR(Fraction::fromTicks(960), 0), ClefType::F);
+    score->endCmd();
+    const ClefTypeList bass = score->staff(0)->clefType(Fraction::fromTicks(960));
+    ASSERT_EQ(bass.concertClef, ClefType::F);
+    ASSERT_EQ(score->staff(0)->clefType(Fraction::fromTicks(0)).concertClef, ClefType::G);
+
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    const Ret ret = writeTake(score, takeWriterTestTake(0, 1920, {
+        takeWriterTestEvent(0, 960, { 60 }),
+        takeWriterTestEvent(960, 960, { 50 }),
+    }), TakeTarget());
+    score->endCmd(!ret);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:half[60/14] C:half[50/16]\n"
+              "m2 v1: R:measure\n");
+    EXPECT_TRUE(score->staff(0)->clefType(Fraction::fromTicks(960)) == bass);
+    EXPECT_TRUE(score->staff(0)->clefType(Fraction::fromTicks(1920)) == bass);
+    EXPECT_EQ(score->staff(0)->clefType(Fraction::fromTicks(0)).concertClef, ClefType::G);
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ReplacingTheSpanCutsOtherVoicesRestsAtTheStart)
+{
+    const QuantizeResult take = takeWriterTestTake(1440, 1920, { takeWriterTestEvent(1440, 480, { 67 }) });
+
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:half[72/14] C:quarter[74/16] C:quarter[67/15]\n"
+              "m1 v2: C:quarter[60/14] C:quarter[62/16] R:quarter\n"
+              "m2 v1: R:measure\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, CutsNeedingTwoValuesStartTheTakeInEveryVoice)
+{
+    // 1560 is a quarter and a 16th into both the voice-1 D5 half note and the voice-2 half rest, 960 to 1920
+    const QuantizeResult take = takeWriterTestTake(1560, 1920, {
+        takeWriterTestEvent(1560, 120, { 67 }),
+        takeWriterTestEvent(1680, 240, {}),
+    });
+
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:half[72/14] C:quarter[74/16~] C:16th[~74/16] C:16th[67/15] R:eighth\n"
+              "m1 v2: C:quarter[60/14] C:quarter[62/16] R:quarter R:16th\n"
+              "m2 v1: R:measure\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, CutNoteKeepsSoundingUpToTheStart)
+{
+    const QuantizeResult take = takeWriterTestTake(600, 1920, {
+        takeWriterTestEvent(600, 120, { 67 }),
+        takeWriterTestEvent(720, 240, { 64 }),
+        takeWriterTestEvent(960, 960, { 69 }),
+    });
+
+    Ret ret;
+    MasterScore* score = takeWriterTestWrite(u"two-voices.mscx", take, TakeTarget(), ret);
+    ASSERT_TRUE(score);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:quarter[72/14~] C:16th[~72/14] C:16th[67/15] C:eighth[64/18] C:half[69/17]\n"
+              "m1 v2: C:quarter[60/14] C:quarter[62/16]\n"
+              "m2 v1: R:measure\n");
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, WritingLeavesNoteInputAndSelectionAlone)
+{
+    const TupletInfo eighths { 1920, 480, 3, 2, 160 };
+    const QuantizeResult take = takeWriterTestTake(1920, 3840, {
+        takeWriterTestEvent(1920, 160, { 67 }, {}, eighths),
+        takeWriterTestEvent(2080, 160, { 69 }, {}, eighths),
+        takeWriterTestEvent(2240, 160, { 71 }, {}, eighths),
+        takeWriterTestEvent(2400, 1440, {}),
+    });
+
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"blank-g.mscx");
+    ASSERT_TRUE(score);
+    const TDuration inputDuration = score->inputState().duration();
+    ASSERT_FALSE(inputDuration == TDuration(DurationType::V_EIGHTH));
+
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    const Ret ret = writeTake(score, take, TakeTarget());
+    score->endCmd(!ret);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_TRUE(score->inputState().duration() == inputDuration);
+    EXPECT_TRUE(score->selection().isNone());
+    delete score;
+}
+
+TEST_F(MidiRecording_TakeWriterTests, ConcertPitchTakesThePlayedKeyAsSounding)
+{
+    MasterScore* score = ScoreRW::readScore(TAKE_WRITER_TEST_DATA_DIR + u"handbells.mscx");
+    ASSERT_TRUE(score);
+    score->style().set(Sid::concertPitch, true);
+    ASSERT_TRUE(score->style().styleB(Sid::concertPitch));
+
+    TakeTarget written;
+    written.useWrittenPitch = true;
+    score->startCmd(TranslatableString::untranslatable("MIDI recording tests"));
+    const Ret ret = writeTake(score, takeWriterTestTake(1920, 3840, { takeWriterTestEvent(1920, 1920, { 72 }) }), written);
+    score->endCmd(!ret);
+    ASSERT_TRUE(ret) << ret.text();
+
+    EXPECT_EQ(takeWriterTestText(score, 0),
+              "m1 v1: C:whole[84/14]\n"
+              "m2 v1: C:whole[72/14]\n");
     delete score;
 }

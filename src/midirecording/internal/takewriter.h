@@ -53,7 +53,11 @@ struct TakeTarget {
 //! target voice alone, keeping dynamics, hairpins, chord symbols, text and
 //! lines. Replacing the span leaves the staff's other voices empty in it. The
 //! events are written left to right on the target track, tuplets included, and
-//! ties and rests are regrouped the way the metre reads.
+//! ties and rests are regrouped the way the metre reads. Clef changes in the
+//! span are kept, moved to the first chord or rest at or after their place
+//! when a written note holds across it.
+//!
+//! Leaves nothing selected, and the note input duration as it was.
 //!
 //! Fails, part-way through, when the take starts inside a tuplet, an event
 //! has no chord or rest to start on, a tuplet cannot be made, or a tie has no

@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "engraving/dom/chord.h"
+#include "engraving/dom/clef.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/input.h"
 #include "engraving/dom/measure.h"
@@ -39,6 +40,7 @@
 #include "engraving/dom/staff.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/tuplet.h"
+#include "engraving/editing/editclef.h"
 
 #include "takesetup.h"
 
@@ -109,10 +111,63 @@ static SelectionFilter takeWriterClearFilter()
     return filter;
 }
 
+//! Cuts a chord or rest that sounds across tick there. A chord cut to a length
+//! that needs several note values carries on, tied, through the pieces after
+//! the first. changeCRlen is given the first value alone: given a length that
+//! needs several, it writes the fill for the rest of the old length from the
+//! end of the first value, on top of the rests it wrote for the others, and
+//! nothing then starts at tick.
+static Ret takeWriterCut(Score* score, ChordRest* across, const Fraction& tick, InputState& input)
+{
+    const track_idx_t track = across->track();
+    const std::string failed = "the cut at tick " + std::to_string(tick.ticks()) + " could not be written";
+    const std::vector<TDuration> values = toDurationList(tick - across->tick(), true);
+    if (values.empty()) {
+        return takeWriterError(failed);
+    }
+
+    std::vector<NoteVal> notes;
+    if (across->isChord()) {
+        for (const Note* note : toChord(across)->notes()) {
+            notes.push_back(note->noteVal());
+        }
+    }
+    score->changeCRlen(across, values.front().fraction());
+
+    Chord* previous = across->isChord() ? toChord(across) : nullptr;
+    Fraction pieceTick = across->endTick();
+    for (size_t i = 1; i < values.size(); ++i) {
+        Segment* segment = score->tick2segment(pieceTick, true, SegmentType::ChordRest);
+        if (!segment || !segment->element(track) || !segment->element(track)->isRest()) {
+            return takeWriterError(failed);
+        }
+        score->setNoteRest(segment, track, previous ? notes.front() : NoteVal(), values.at(i).fraction(), DirectionV::AUTO, false, {},
+                           false, &input);
+        if (previous) {
+            ChordRest* written = score->findCR(pieceTick, track);
+            if (!written || !written->isChord() || written->tick() != pieceTick) {
+                return takeWriterError(failed);
+            }
+            Chord* chord = toChord(written);
+            for (size_t j = 1; j < notes.size(); ++j) {
+                score->addNote(chord, notes.at(j), false, {}, &input);
+            }
+            for (Note* note : previous->notes()) {
+                if (Note* to = chord->findNote(note->pitch())) {
+                    takeWriterTie(score, note, to);
+                }
+            }
+            previous = chord;
+        }
+        pieceTick += values.at(i).fraction();
+    }
+    return make_ok();
+}
+
 //! A chord or rest of the track that sounds across the take's start is cut
 //! there, so the take has a chord or rest to start on. Its tie on is dropped.
 //! A tuplet cannot be cut.
-static Ret takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction& start)
+static Ret takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction& start, InputState& input)
 {
     ChordRest* across = score->findCR(start, track);
     if (!across || across->tick() >= start || across->endTick() <= start) {
@@ -121,8 +176,70 @@ static Ret takeWriterCutAtStart(Score* score, track_idx_t track, const Fraction&
     if (across->tuplet()) {
         return takeWriterError("the take starts inside a tuplet");
     }
-    score->changeCRlen(across, start - across->tick());
+    return takeWriterCut(score, across, start, input);
+}
+
+//! Replacing the span leaves voices 2 to 4 empty in it, so a rest of theirs
+//! that runs across the take's start is cut there too. Their notes are kept whole.
+static Ret takeWriterCutOtherVoiceRests(Score* score, track_idx_t staffTrack, const Fraction& start, InputState& input)
+{
+    for (track_idx_t track = staffTrack + 1; track < staffTrack + VOICES; ++track) {
+        ChordRest* across = score->findCR(start, track);
+        if (across && across->isRest() && !across->tuplet() && across->tick() < start && across->endTick() > start) {
+            const Ret ret = takeWriterCut(score, across, start, input);
+            if (!ret) {
+                return ret;
+            }
+        }
+    }
     return make_ok();
+}
+
+//! A clef change the take's span holds
+struct TakeWriterClef {
+    Fraction tick;
+    ClefTypeList types;
+};
+
+//! The clef changes on the staff strictly inside the span. Clearing voice 1
+//! removes them (deleteRange keeps only time and key signatures and
+//! barlines), and a clef change governs the music after the take as well.
+static std::vector<TakeWriterClef> takeWriterClefsIn(Score* score, track_idx_t staffTrack, const Fraction& start, const Fraction& end)
+{
+    std::vector<TakeWriterClef> clefs;
+    for (Segment* segment = score->tick2segment(start, true, SegmentType::ChordRest); segment && segment->tick() < end;
+         segment = segment->next1(SegmentType::Clef)) {
+        EngravingItem* item = segment->element(staffTrack);
+        if (segment->isClefType() && item && item->isClef() && !item->generated()) {
+            clefs.push_back({ segment->tick(), toClef(item)->clefTypeList() });
+        }
+    }
+    return clefs;
+}
+
+//! Puts a clef change back before the staff's first chord or rest at or after
+//! its tick, with its concert and transposing clefs as they were
+static void takeWriterRestoreClef(Score* score, staff_idx_t staffIdx, const TakeWriterClef& clef)
+{
+    const track_idx_t staffTrack = staffIdx * VOICES;
+    Segment* segment = score->tick2rightSegment(clef.tick);
+    while (segment && !segment->element(staffTrack)) {
+        segment = segment->next1(SegmentType::ChordRest);
+    }
+    if (!segment) {
+        return;
+    }
+
+    ChordRest* chordRest = toChordRest(segment->element(staffTrack));
+    const bool concertPitch = score->style().styleB(Sid::concertPitch);
+    score->undoChangeClef(score->staff(staffIdx), chordRest, concertPitch ? clef.types.concertClef : clef.types.transposingClef);
+
+    // A new clef gets one type for both; a transposing instrument's pair is put back as it was
+    Segment* clefSegment = chordRest->segment()->prev1(SegmentType::Clef);
+    EngravingItem* restored = clefSegment && clefSegment->tick() == chordRest->tick() ? clefSegment->element(staffTrack) : nullptr;
+    if (restored && restored->isClef() && !(toClef(restored)->clefTypeList() == clef.types)) {
+        score->undo(new ChangeClefType(toClef(restored), clef.types.concertClef, clef.types.transposingClef));
+    }
 }
 
 //! Replacing the span writes the take in voice 1 alone: the rests the clear
@@ -177,7 +294,7 @@ track_idx_t TakeTarget::track() const
     return staffIdx * VOICES + (replaceVoice ? voice : 0);
 }
 
-Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& target)
+static Ret takeWriterWrite(Score* score, const QuantizeResult& result, const TakeTarget& target)
 {
     const track_idx_t staffTrack = target.staffIdx * VOICES;
     const track_idx_t track = target.track();
@@ -194,9 +311,16 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
         }
     }
 
-    Ret ret = takeWriterCutAtStart(score, track, start);
+    InputState input;
+    Ret ret = takeWriterCutAtStart(score, track, start, input);
     if (!ret) {
         return ret;
+    }
+    if (!target.replaceVoice) {
+        ret = takeWriterCutOtherVoiceRests(score, staffTrack, start, input);
+        if (!ret) {
+            return ret;
+        }
     }
 
     Segment* first = score->tick2segment(start, true, SegmentType::ChordRest);
@@ -206,12 +330,14 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
     }
     const track_idx_t clearFirst = target.replaceVoice ? track : staffTrack;
     const track_idx_t clearEnd = target.replaceVoice ? track + 1 : staffTrack + VOICES;
+    // Clearing voice 1 takes the staff's clef changes with it
+    const std::vector<TakeWriterClef> clefs = clearFirst == staffTrack ? takeWriterClefsIn(score, staffTrack, start, end)
+                                              : std::vector<TakeWriterClef>();
     score->deleteRange(first, last, clearFirst, clearEnd, takeWriterClearFilter(), false);
     if (!target.replaceVoice) {
         takeWriterEmptyOtherVoices(score, staffTrack, start, end);
     }
 
-    InputState input;
     Chord* previousLast = nullptr;
     std::optional<TupletInfo> tuplet;
     for (const NotatedEvent& event : result.events) {
@@ -279,7 +405,20 @@ Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& targ
     }
 
     score->regroupNotesAndRests(start, end, track);
+    for (const TakeWriterClef& clef : clefs) {
+        takeWriterRestoreClef(score, target.staffIdx, clef);
+    }
     return make_ok();
+}
+
+Ret writeTake(Score* score, const QuantizeResult& result, const TakeTarget& target)
+{
+    // Making a tuplet selects it and sets the note input duration to its value; neither is the user's
+    const TDuration inputDuration = score->inputState().duration();
+    const Ret ret = takeWriterWrite(score, result, target);
+    score->deselectAll();
+    score->inputState().setDuration(inputDuration);
+    return ret;
 }
 
 int takeStartTickInScore(const Score* score, track_idx_t track, int fromTick, int gridTicks)
