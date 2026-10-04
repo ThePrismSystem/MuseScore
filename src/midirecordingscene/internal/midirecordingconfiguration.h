@@ -36,5 +36,16 @@ public:
     int recordSpeedPercent() const override;
     bool playOtherStaves() const override;
     double latencyMs() const override;
+
+    RecordingSettings recordingSettings() const override;
+    void setRecordingSettings(const RecordingSettings& recording) override;
+    muse::async::Notification settingsChanged() const override;
+
+    void setLatencyMs(double ms) override;
+    muse::async::Notification latencyMsChanged() const override;
+
+private:
+    muse::async::Notification m_settingsChanged;
+    muse::async::Notification m_latencyMsChanged;
 };
 }

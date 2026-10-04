@@ -32,6 +32,10 @@ target_sources(midirecording PRIVATE
     internal/takerecorder.h
     internal/takewriter.cpp
     internal/takewriter.h
+    internal/calibration.cpp
+    internal/calibration.h
+    internal/settingchoices.cpp
+    internal/settingchoices.h
 )
 
 target_link_libraries(midirecording PRIVATE engraving)

@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace mu::midirecording {
@@ -83,6 +84,16 @@ struct QuantizeSettings {
     int minRestTicks = 240;       // 8th
     double brushMs = 40.0;
     OverlapMode overlaps = OverlapMode::Tied;
+};
+
+//! The settings the MIDI recording menu changes. The latency is not among
+//! them: Calibrate measures it.
+struct RecordingSettings {
+    QuantizeSettings quantize;
+    std::string replaceMode = "span";   // "span" or "voice"
+    int countInBars = 1;
+    int recordSpeedPercent = 100;
+    bool playOtherStaves = true;
 };
 
 struct TupletInfo {

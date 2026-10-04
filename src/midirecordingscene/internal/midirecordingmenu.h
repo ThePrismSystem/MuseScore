@@ -22,27 +22,25 @@
 
 #pragma once
 
-#include <memory>
+#include "async/asyncable.h"
+#include "modularity/ioc.h"
 
-#include "modularity/imodulesetup.h"
+#include "../imidirecordingconfiguration.h"
+#include "../imidirecordingmenu.h"
 
 namespace mu::midirecording {
-class MidiRecordingConfiguration;
-class MidiRecordingController;
-class MidiRecordingMenu;
-class MidiRecordingUiActions;
-class MidiRecordingSceneModule : public muse::modularity::IModuleSetup
+class MidiRecordingMenu : public IMidiRecordingMenu, public muse::async::Asyncable
 {
+    muse::GlobalInject<IMidiRecordingConfiguration> configuration;
+
 public:
-    std::string moduleName() const override;
-    void registerExports() override;
-    void resolveImports() override;
-    void onInit(const muse::IApplication::RunMode& mode) override;
+    void init();
+
+    muse::actions::ActionCode recordActionCode() const override;
+    std::vector<MidiRecordingMenuEntry> settingsMenu() const override;
+    muse::async::Notification settingsMenuChanged() const override;
 
 private:
-    std::shared_ptr<MidiRecordingConfiguration> m_configuration;
-    std::shared_ptr<MidiRecordingController> m_controller;
-    std::shared_ptr<MidiRecordingUiActions> m_uiActions;
-    std::shared_ptr<MidiRecordingMenu> m_menu;
+    muse::async::Notification m_settingsMenuChanged;
 };
 }

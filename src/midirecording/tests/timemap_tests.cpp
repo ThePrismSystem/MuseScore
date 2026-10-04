@@ -94,3 +94,16 @@ TEST_F(MidiRecording_TimeMapTests, ValidityNeedsTwoRisingKnots)
     EXPECT_FALSE(timeMapIsValid({ { 0.0, 0 }, { 1.0, 0 } }));
     EXPECT_FALSE(timeMapIsValid({ { 0.0, 0 }, { 1.0, 960 }, { 0.5, 1920 } }));
 }
+
+TEST_F(MidiRecording_TimeMapTests, TicksMapToSeconds)
+{
+    const std::vector<TimeKnot> knots = buildTimeMap(960, 3840, 120, timeMapTestSlowsDown);
+
+    EXPECT_NEAR(timeMapTickToSecs(knots, 960), 1.0, 1e-9);
+    // 60 ticks into the 60 bpm part: 2 s plus an eighth of a second
+    EXPECT_NEAR(timeMapTickToSecs(knots, 1980), 2.125, 1e-9);
+    EXPECT_NEAR(timeMapTickToSecs(knots, 2400), 3.0, 1e-9);
+    // Before the first knot and past the last, the end segments extend
+    EXPECT_NEAR(timeMapTickToSecs(knots, 864), 0.9, 1e-9);
+    EXPECT_NEAR(timeMapTickToSecs(knots, 4320), 7.0, 1e-9);
+}

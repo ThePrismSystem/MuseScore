@@ -94,6 +94,16 @@ void MidiRecordingConfiguration::init()
     settings()->setCanBeManuallyEdited(PLAY_OTHER_STAVES_KEY, true);
     settings()->setDefaultValue(LATENCY_MS_KEY, Val(0.0));
     settings()->setCanBeManuallyEdited(LATENCY_MS_KEY, true, Val(-MIDIRECORDING_MAX_LATENCY_MS), Val(MIDIRECORDING_MAX_LATENCY_MS));
+
+    for (const Settings::Key& key : { GRID_KEY, TRIPLETS_KEY, TRIPLET_UNIT_KEY, TIDY_GAPS_KEY, MIN_REST_KEY, BRUSH_MS_KEY, OVERLAPS_KEY,
+                                      REPLACE_MODE_KEY, COUNT_IN_BARS_KEY, RECORD_SPEED_PERCENT_KEY, PLAY_OTHER_STAVES_KEY }) {
+        settings()->valueChanged(key).onReceive(nullptr, [this](const Val&) {
+            m_settingsChanged.notify();
+        });
+    }
+    settings()->valueChanged(LATENCY_MS_KEY).onReceive(nullptr, [this](const Val&) {
+        m_latencyMsChanged.notify();
+    });
 }
 
 QuantizeSettings MidiRecordingConfiguration::quantizeSettings() const
@@ -137,4 +147,45 @@ bool MidiRecordingConfiguration::playOtherStaves() const
 double MidiRecordingConfiguration::latencyMs() const
 {
     return std::clamp(settings()->value(LATENCY_MS_KEY).toDouble(), -MIDIRECORDING_MAX_LATENCY_MS, MIDIRECORDING_MAX_LATENCY_MS);
+}
+
+RecordingSettings MidiRecordingConfiguration::recordingSettings() const
+{
+    RecordingSettings recording;
+    recording.quantize = quantizeSettings();
+    recording.replaceMode = replaceMode();
+    recording.countInBars = countInBars();
+    recording.recordSpeedPercent = recordSpeedPercent();
+    recording.playOtherStaves = playOtherStaves();
+    return recording;
+}
+
+void MidiRecordingConfiguration::setRecordingSettings(const RecordingSettings& recording)
+{
+    settings()->setSharedValue(GRID_KEY, Val(recording.quantize.gridTicks));
+    settings()->setSharedValue(TRIPLETS_KEY, Val(recording.quantize.triplets));
+    settings()->setSharedValue(TRIPLET_UNIT_KEY, Val(recording.quantize.tripletUnitTicks));
+    settings()->setSharedValue(TIDY_GAPS_KEY, Val(recording.quantize.tidyGaps));
+    settings()->setSharedValue(MIN_REST_KEY, Val(recording.quantize.minRestTicks));
+    settings()->setSharedValue(BRUSH_MS_KEY, Val(recording.quantize.brushMs));
+    settings()->setSharedValue(OVERLAPS_KEY, Val(recording.quantize.overlaps == OverlapMode::Cut ? "cut" : "tied"));
+    settings()->setSharedValue(REPLACE_MODE_KEY, Val(recording.replaceMode));
+    settings()->setSharedValue(COUNT_IN_BARS_KEY, Val(recording.countInBars));
+    settings()->setSharedValue(RECORD_SPEED_PERCENT_KEY, Val(recording.recordSpeedPercent));
+    settings()->setSharedValue(PLAY_OTHER_STAVES_KEY, Val(recording.playOtherStaves));
+}
+
+muse::async::Notification MidiRecordingConfiguration::settingsChanged() const
+{
+    return m_settingsChanged;
+}
+
+void MidiRecordingConfiguration::setLatencyMs(double ms)
+{
+    settings()->setSharedValue(LATENCY_MS_KEY, Val(std::clamp(ms, -MIDIRECORDING_MAX_LATENCY_MS, MIDIRECORDING_MAX_LATENCY_MS)));
+}
+
+muse::async::Notification MidiRecordingConfiguration::latencyMsChanged() const
+{
+    return m_latencyMsChanged;
 }

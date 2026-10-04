@@ -73,8 +73,10 @@ Item {
 
             width: 30
             height: width
+            enabled: Boolean(item) ? item.enabled : true
 
             icon: Boolean(item) ? item.icon : IconCode.NONE
+            iconColor: Boolean(item) && Boolean(item.iconColor) ? item.iconColor : ui.theme.fontPrimaryColor
 
             toolTipTitle: Boolean(item) ? item.title : ""
             toolTipDescription: Boolean(item) ? item.description : ""

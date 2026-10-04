@@ -75,6 +75,12 @@ void PlaybackToolBarModel::setupConnections()
     playbackController()->currentTempoChanged().onNotify(this, [this]() {
         emit tempoChanged();
     });
+
+    if (midiRecordingMenu()) {
+        midiRecordingMenu()->settingsMenuChanged().onNotify(this, [this]() {
+            updateActions();
+        });
+    }
 }
 
 void PlaybackToolBarModel::updateActions()
@@ -114,6 +120,14 @@ void PlaybackToolBarModel::updateActions()
         }
     }
 
+    //! NOTE Only when the MIDI recording module is built
+    if (midiRecordingMenu()) {
+        if (MenuItem* recordItem = makeMenuItem(midiRecordingMenu()->recordActionCode())) {
+            result << recordItem;
+        }
+        result << makeMidiRecordingMenu();
+    }
+
     MenuItem* settingsItem = makeMenu(TranslatableString("action", "Playback settings"), settingsItems);
 
     UiAction action = settingsItem->action();
@@ -140,6 +154,33 @@ MenuItem* PlaybackToolBarModel::makeInputPitchMenu()
     menu->setAction(action);
 
     return menu;
+}
+
+MenuItem* PlaybackToolBarModel::makeMidiRecordingMenu()
+{
+    MenuItem* menu = makeMenu(TranslatableString("action", "MIDI recording settings"),
+                              makeMidiRecordingItems(midiRecordingMenu()->settingsMenu()), "midi-recording-settings");
+    UiAction action = menu->action();
+    action.iconCode = IconCode::Code::SMALL_ARROW_DOWN;
+    menu->setAction(action);
+
+    return menu;
+}
+
+MenuItemList PlaybackToolBarModel::makeMidiRecordingItems(const std::vector<mu::midirecording::MidiRecordingMenuEntry>& entries)
+{
+    MenuItemList items;
+    for (const mu::midirecording::MidiRecordingMenuEntry& entry : entries) {
+        if (entry.isSeparator()) {
+            items << makeSeparator();
+        } else if (!entry.subitems.empty()) {
+            items << makeMenu(entry.title, makeMidiRecordingItems(entry.subitems), QString::fromStdString(entry.menuId));
+        } else if (MenuItem* item = makeMenuItem(entry.code)) {
+            items << item;
+        }
+    }
+
+    return items;
 }
 
 void PlaybackToolBarModel::onActionsStateChanges(const ActionCodeList& codes)

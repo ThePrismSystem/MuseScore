@@ -458,3 +458,23 @@ TEST_F(MidiRecording_QuantizerTests, MeasureEndForReleaseOutsideEveryMeasureIsTh
     EXPECT_EQ(measureEndForRelease(measures, 5000), 5000);
     EXPECT_EQ(measureEndForRelease({}, 700), 700);
 }
+
+TEST_F(MidiRecording_QuantizerTests, ExtendedMeasuresAreWholeMeasures)
+{
+    // A 4/4 score ending in a 3/4 measure: Score::appendMeasures adds whole 4/4 measures after it
+    const auto measures = extendMeasures({ { 0, 1920, 4, 4 }, { 1920, 1440, 4, 4 } }, 5000);
+
+    ASSERT_EQ(measures.size(), 3u);
+    EXPECT_EQ(measures[2].startTick, 3360);
+    EXPECT_EQ(measures[2].ticks, 1920);
+    EXPECT_EQ(measures[2].sigN, 4);
+    EXPECT_EQ(measures[2].sigD, 4);
+}
+
+TEST_F(MidiRecording_QuantizerTests, TakePastAShortFinalMeasureEndsOnAWholeMeasure)
+{
+    const std::vector<MeasureSpan> measures = { { 0, 1920, 4, 4 }, { 1920, 1440, 4, 4 } };
+    const QuantizeResult result = quantize({ quantizerTestNote(60, 3360, 3840) }, measures, 0, QuantizeSettings());
+
+    EXPECT_EQ(result.takeEndTick, 5280);
+}

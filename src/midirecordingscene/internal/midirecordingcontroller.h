@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 
 #include "actions/actionable.h"
@@ -77,9 +78,26 @@ public:
     bool isRecording() const;
     muse::async::Notification isRecordingChanged() const;
 
+    //! Record can be pressed: a take is running, or playback is not
+    bool canToggleRecord() const;
+    muse::async::Notification canToggleRecordChanged() const;
+
 private:
+    //! The last take written into a score, kept for Re-apply
+    struct WrittenTake {
+        notation::IMasterNotationPtr masterNotation;
+        TakeFile take;
+        int fromTick = 0;
+        size_t undoStateIndex = 0;
+    };
+
     void toggleRecord();
+    bool canStartTake(const notation::IMasterNotationPtr& masterNotation, const notation::INotationPtr& notation);
     void startTake();
+    void beginTake(const notation::IMasterNotationPtr& masterNotation, const notation::INotationPtr& notation, const TakeFile& context,
+                   const std::set<size_t>& excludedTracks);
+    void startCalibration();
+    void reportCalibration(const TakeFile& take, int endTick);
     void requestStop();
     void finishTake();
     void cancelTake();
@@ -88,14 +106,16 @@ private:
     void forgetClosedScore();
     void forgetTakeState();
     void reportTake(const notation::IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick);
-    void writeTakeIntoScore(const notation::IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick,
+    bool writeTakeIntoScore(const notation::IMasterNotationPtr& masterNotation, const TakeFile& take, int fromTick,
                             const QuantizeResult& result);
     void reapplyTake();
+    void restoreReappliedTake(const notation::INotationPtr& notation, const WrittenTake& previous);
     void exportTake();
     void replayTake();
     void refuse(const std::string& reason);
+    void applySetting(const muse::actions::ActionCode& code);
 
-    void onPositionChanged(double secs);
+    void onPositionChanged(double secs, int tick);
     void onPlayingChanged();
     void onDeviceChanged();
     void onNotationChanged();
@@ -112,17 +132,13 @@ private:
     bool m_playNotesOnMidiInputForced = false;
     double m_savedTempoMultiplier = 1.0;
     int m_takeFromTick = 0;   // where the take was started from, before it moved back to the grid
+    bool m_calibrating = false;
+    int m_calibrationEndTick = 0;
     std::optional<int64_t> m_stopNs;
     std::optional<TakeFile> m_lastTake;
 
-    //! The last take written into a score, kept for Re-apply
-    struct WrittenTake {
-        notation::IMasterNotationPtr masterNotation;
-        TakeFile take;
-        int fromTick = 0;
-        size_t undoStateIndex = 0;
-    };
     std::optional<WrittenTake> m_writtenTake;
     muse::async::Notification m_isRecordingChanged;
+    muse::async::Notification m_canToggleRecordChanged;
 };
 }

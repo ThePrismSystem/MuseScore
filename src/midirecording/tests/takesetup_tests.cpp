@@ -49,19 +49,26 @@ TEST_F(MidiRecording_TakeSetupTests, StartCountsTheGridFromTheBarline)
 
 TEST_F(MidiRecording_TakeSetupTests, SpanLeavesOutTheWholeStaff)
 {
-    EXPECT_EQ(takeExcludedTracks(1, 2, "span", true, 3), std::set<size_t>({ 4, 5, 6, 7 }));
+    EXPECT_EQ(takeExcludedTracks({ 1 }, 2, "span", true, 3), std::set<size_t>({ 4, 5, 6, 7 }));
 }
 
 TEST_F(MidiRecording_TakeSetupTests, VoiceLeavesOutOnlyThatVoice)
 {
-    EXPECT_EQ(takeExcludedTracks(1, 2, "voice", true, 3), std::set<size_t>({ 6 }));
+    EXPECT_EQ(takeExcludedTracks({ 1 }, 2, "voice", true, 3), std::set<size_t>({ 6 }));
 }
 
 TEST_F(MidiRecording_TakeSetupTests, ClickOnlyLeavesOutEveryTrack)
 {
-    const std::set<size_t> tracks = takeExcludedTracks(1, 2, "span", false, 3);
+    const std::set<size_t> tracks = takeExcludedTracks({ 1 }, 2, "span", false, 3);
 
     EXPECT_EQ(tracks.size(), 12u);
     EXPECT_EQ(*tracks.begin(), 0u);
     EXPECT_EQ(*tracks.rbegin(), 11u);
+}
+
+TEST_F(MidiRecording_TakeSetupTests, LinkedStavesAreLeftOutToo)
+{
+    // Staff 0, with a TAB staff linked to it at staff 2
+    EXPECT_EQ(takeExcludedTracks({ 0, 2 }, 1, "span", true, 3), std::set<size_t>({ 0, 1, 2, 3, 8, 9, 10, 11 }));
+    EXPECT_EQ(takeExcludedTracks({ 0, 2 }, 1, "voice", true, 3), std::set<size_t>({ 1, 9 }));
 }

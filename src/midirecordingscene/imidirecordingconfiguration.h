@@ -24,6 +24,7 @@
 
 #include <string>
 
+#include "async/notification.h"
 #include "modularity/imoduleinterface.h"
 
 #include "midirecording/internal/recordingtypes.h"
@@ -45,5 +46,13 @@ public:
     virtual int recordSpeedPercent() const = 0;
     virtual bool playOtherStaves() const = 0;
     virtual double latencyMs() const = 0;
+
+    //! Everything the MIDI recording menu changes, read and written together
+    virtual RecordingSettings recordingSettings() const = 0;
+    virtual void setRecordingSettings(const RecordingSettings& recording) = 0;
+    virtual muse::async::Notification settingsChanged() const = 0;
+
+    virtual void setLatencyMs(double ms) = 0;
+    virtual muse::async::Notification latencyMsChanged() const = 0;
 };
 }

@@ -25,14 +25,18 @@
 #include <memory>
 
 #include "async/asyncable.h"
+#include "modularity/ioc.h"
 #include "ui/iuiactionsmodule.h"
 #include "ui/uitypes.h"
 
+#include "../imidirecordingconfiguration.h"
 #include "midirecordingcontroller.h"
 
 namespace mu::midirecording {
 class MidiRecordingUiActions : public muse::ui::IUiActionsModule, public muse::async::Asyncable
 {
+    muse::GlobalInject<IMidiRecordingConfiguration> configuration;
+
 public:
     explicit MidiRecordingUiActions(std::shared_ptr<MidiRecordingController> controller);
 
@@ -50,6 +54,7 @@ private:
     static const muse::ui::UiActionList s_actions;
 
     std::shared_ptr<MidiRecordingController> m_controller;
+    muse::ui::UiActionList m_actions;
     muse::async::Channel<muse::actions::ActionCodeList> m_actionEnabledChanged;
     muse::async::Channel<muse::actions::ActionCodeList> m_actionCheckedChanged;
 };
