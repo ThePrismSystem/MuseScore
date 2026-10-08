@@ -344,6 +344,11 @@ void PlaybackController::playElements(const std::vector<const notation::Engravin
         return;
     }
 
+    //! While the score plays, only notes played on a MIDI keyboard are heard over it
+    if (isPlaying() && !isMidi) {
+        return;
+    }
+
     if (m_measureInputLag) {
         START_INPUT_LAG_TIMER;
     }
