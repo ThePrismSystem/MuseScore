@@ -146,15 +146,20 @@ samples_t MuseSamplerWrapper::process(float* buffer, samples_t samplesPerChannel
     prepareOutputBuffer(samplesPerChannel);
 
     bool active = isActive();
+    msecs_t nextMicros = samplesToMsecs(samplesPerChannel, m_outputSpec.sampleRate);
 
     if (!active) {
-        msecs_t nextMicros = samplesToMsecs(samplesPerChannel, m_outputSpec.sampleRate);
         MuseSamplerSequencer::EventSequenceMap sequences = m_sequencer.movePlaybackForward(nextMicros);
 
         for (const auto& pair : sequences) {
             for (const MuseSamplerSequencer::EventType& event : pair.second) {
                 handleAuditionEvents(event);
             }
+        }
+    } else {
+        // Offstream events, such as notes played on a MIDI keyboard, are auditioned over the playback
+        for (const MuseSamplerSequencer::EventType& event : m_sequencer.moveOffStreamForward(nextMicros)) {
+            handleAuditionEvents(event);
         }
     }
 

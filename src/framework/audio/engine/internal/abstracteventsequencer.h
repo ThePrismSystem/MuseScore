@@ -198,14 +198,41 @@ public:
         }
 
         // Empty sequence means to continue the previous sequence
-        result.emplace(m_playbackPosition, EventSequence());
+        EventSequence& bufferStart = result[m_playbackPosition];
         m_playbackPosition += nextMsecs;
+
+        // Offstream events, such as notes played on a MIDI keyboard, sound at the start of the buffer
+        EventSequence offStream = moveOffStreamForward(nextMsecs);
+        bufferStart.insert(bufferStart.end(), std::make_move_iterator(offStream.begin()), std::make_move_iterator(offStream.end()));
 
         if (m_currentMainSequenceIt == m_mainStreamEvents.cend()) {
             return result;
         }
 
         handleMainStream(result);
+
+        return result;
+    }
+
+    //! The offstream events due in the next nextMsecs, for a sequencer playing its main stream
+    EventSequence moveOffStreamForward(const msecs_t nextMsecs)
+    {
+        ONLY_AUDIO_PROC_THREAD;
+
+        EventSequence result;
+
+        if (m_currentOffSequenceIt == m_offStreamEvents.cend()) {
+            return result;
+        }
+
+        m_offstreamPosition += nextMsecs;
+
+        EventSequenceMap sequences;
+        handleOffStream(sequences);
+
+        for (auto& pair : sequences) {
+            result.insert(result.end(), std::make_move_iterator(pair.second.begin()), std::make_move_iterator(pair.second.end()));
+        }
 
         return result;
     }
