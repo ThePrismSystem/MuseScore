@@ -101,6 +101,7 @@ RetVal<MixerChannelPtr> Mixer::addChannel(const TrackId trackId, ITrackAudioInpu
         }
 
         ITrackAudioInputPtr source = std::static_pointer_cast<ITrackAudioInput>(channel->source());
+        LOGI() << "[midi-preview] track " << channel->trackId() << " muted: " << channel->muted();
 
         if (channel->muted()) {
             if (source) {
@@ -358,6 +359,7 @@ void Mixer::setIsActive(bool arg)
     ONLY_AUDIO_ENGINE_THREAD;
 
     AbstractAudioSource::setIsActive(arg);
+    LOGI() << "[midi-preview] mixer active: " << arg;
 
     for (auto& channel : m_trackChannels) {
         if (!channel.second->muted()) {

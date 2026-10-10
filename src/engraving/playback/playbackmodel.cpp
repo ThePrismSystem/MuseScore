@@ -286,6 +286,8 @@ void PlaybackModel::triggerEventsForItems(const std::vector<const EngravingItem*
     }
 
     InstrumentTrackId trackId = idKey(items);
+    LOGI() << "[midi-preview] trigger: part " << trackId.partId.toUint64() << ", instrument " << trackId.instrumentId.toStdString()
+           << ", valid: " << trackId.isValid() << ", known: " << (m_playbackDataMap.find(trackId) != m_playbackDataMap.cend());
     if (!trackId.isValid()) {
         return;
     }
@@ -348,6 +350,7 @@ void PlaybackModel::triggerEventsForItems(const std::vector<const EngravingItem*
         m_renderer.render(item, timestamp, duration, dynamicLevel, ctx, profile, result);
     }
 
+    LOGI() << "[midi-preview] trigger sends " << result[timestamp].size() << " events, flush: " << flushSound;
     trackPlaybackData.offStream.send(result, dynamics, flushSound);
 }
 

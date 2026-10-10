@@ -174,6 +174,7 @@ void NotationMidiInput::doProcessEvents()
     }
     bool isNoteInput = !m_previewOnly && isNoteInputMode();
     bool isSoundPreview = !isNoteInput;
+    LOGI() << "[midi-preview] events: " << m_eventsQueue.size() << ", previewOnly: " << m_previewOnly << ", noteInput: " << isNoteInput;
 
     if (isNoteInput && isInputByDuration()) {
         addNoteEventsToInputState();
@@ -223,6 +224,7 @@ void NotationMidiInput::doProcessEvents()
             playbackController()->seekElement(notesOn.front(), !useDurationAndVelocity /*flushSound*/);
         }
 
+        LOGI() << "[midi-preview] notes on: " << notesOn.size() << ", staff: " << notesOn.front()->staffIdx() << ", pitch: " << notesOn.front()->pitch();
         const std::vector<const EngravingItem*> elements(notesOn.begin(), notesOn.end());
         playbackController()->playElements(elements, makeNoteOnParams(useDurationAndVelocity), true);
         m_notesReceivedChannel.send(notesOn);

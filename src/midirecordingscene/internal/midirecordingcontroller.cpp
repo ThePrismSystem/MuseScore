@@ -359,6 +359,7 @@ void MidiRecordingController::beginTake(const IMasterNotationPtr& masterNotation
     m_sawPlaying = false;
     m_stopNs.reset();
 
+    LOGI() << "[midi-preview] take begins, excluded tracks: " << excludedTracks.size();
     notation->midiInput()->setPreviewOnly(true);
 
     m_metronomeForced = !playbackController()->actionChecked(METRONOME_CODE);
@@ -594,6 +595,7 @@ void MidiRecordingController::restorePlayback()
         return;
     }
 
+    LOGI() << "[midi-preview] playback restored after the take";
     m_takeMasterNotation->notation()->midiInput()->setPreviewOnly(false);
     m_takeMasterNotation->playback()->setExcludedTracks({});
     playbackController()->setTempoMultiplier(m_savedTempoMultiplier);

@@ -340,6 +340,10 @@ void PlaybackController::playElements(const std::vector<const notation::Engravin
         return;
     }
 
+    LOGI() << "[midi-preview] playElements: " << elements.size() << ", isMidi: " << isMidi
+           << ", playNotesWhenEditing: " << configuration()->playNotesWhenEditing()
+           << ", playNotesOnMidiInput: " << configuration()->playNotesOnMidiInput() << ", playing: " << isPlaying();
+
     if ((!configuration()->playNotesWhenEditing()) || (isMidi && !configuration()->playNotesOnMidiInput())) {
         return;
     }

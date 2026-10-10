@@ -580,6 +580,7 @@ void MuseSamplerWrapper::handleAuditionEvents(const MuseSamplerSequencer::EventT
             return;
         }
 
+        LOGI() << "[midi-preview] musesampler audition start, pitch: " << noteOn.msEvent._pitch << ", playing: " << isActive();
         m_samplerLib->startAuditionNote(m_sampler, noteOn.msTrack, noteOn.msEvent);
         return;
     }
@@ -590,6 +591,7 @@ void MuseSamplerWrapper::handleAuditionEvents(const MuseSamplerSequencer::EventT
             return;
         }
 
+        LOGI() << "[midi-preview] musesampler audition stop, pitch: " << noteOff.msEvent._pitch << ", playing: " << isActive();
         m_samplerLib->stopAuditionNote(m_sampler, noteOff.msTrack, noteOff.msEvent);
         return;
     }

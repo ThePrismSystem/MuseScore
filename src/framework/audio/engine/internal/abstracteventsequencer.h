@@ -26,6 +26,7 @@
 #include <set>
 
 #include "global/async/asyncable.h"
+#include "log.h"
 #include "mpe/events.h"
 
 #include "audio/common/audiosanitizer.h"
@@ -79,6 +80,8 @@ public:
             }
 
             updateOffStreamEvents(events, dynamics);
+            LOGI() << "[midi-preview] offstream received: " << events.size() << " timestamps, flush: " << flush
+                   << ", active: " << m_isActive << ", queued: " << m_offStreamEvents.size();
         });
 
         updateMainStreamEvents(data.originEvents, data.dynamics);
@@ -123,6 +126,7 @@ public:
         }
 
         m_isActive = active;
+        LOGI() << "[midi-preview] sequencer active: " << active << ", queued offstream: " << m_offStreamEvents.size();
 
         if (m_isActive) {
             updateMainStream();
@@ -194,6 +198,14 @@ public:
             m_offstreamPosition += nextMsecs;
             handleOffStream(result);
 
+            size_t played = 0;
+            for (const auto& pair : result) {
+                played += pair.second.size();
+            }
+            if (played > 0) {
+                LOGI() << "[midi-preview] offstream played while stopped: " << played << ", still queued: " << m_offStreamEvents.size();
+            }
+
             return result;
         }
 
@@ -203,6 +215,9 @@ public:
 
         // Offstream events, such as notes played on a MIDI keyboard, sound at the start of the buffer
         EventSequence offStream = moveOffStreamForward(nextMsecs);
+        if (!offStream.empty()) {
+            LOGI() << "[midi-preview] offstream played while playing: " << offStream.size();
+        }
         bufferStart.insert(bufferStart.end(), std::make_move_iterator(offStream.begin()), std::make_move_iterator(offStream.end()));
 
         if (m_currentMainSequenceIt == m_mainStreamEvents.cend()) {
